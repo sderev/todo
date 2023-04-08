@@ -21,7 +21,6 @@ def load_todos():
     return json.loads(TODO_FILE.read_text())
 
 def save_todos(todos):
-
     json.dump(todos, TODO_FILE.open("w"))
 
 
