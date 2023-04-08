@@ -17,7 +17,6 @@ def setup_dir_and_file(TODO_FOLDER, TODO_FILE):
     if not TODO_FOLDER.is_dir():
         TODO_FOLDER.mkdir()
     if not TODO_FILE.exists():
-        TODO_FILE.touch()
         json.dump([], TODO_FILE.open("w"))
 
 
