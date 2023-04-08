@@ -62,7 +62,7 @@ def list():
 
     click.echo("")  
     if success_story:
-        click.echo("The TODO list is complete. 😎🥳")
+        click.echo("The TODO list has been completed. 😎🥳")
 
 
 @main.command()
