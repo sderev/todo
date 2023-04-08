@@ -7,26 +7,26 @@ import json
 from pathlib import Path
 
 
-user = subprocess.run(["whoami"], capture_output=True, text=True).stdout.strip()
-TODO_FOLDER = Path(f"/home/{user}/TODO/")
-if not TODO_FOLDER.is_dir():
-    TODO_FOLDER.mkdir()
-TODO_FILE = TODO_FOLDER / ".todos.json"
-
-
-def load_todos():
-    if not TODO_FILE.exists():
-        TODO_FILE.touch()
-        json.dump([], TODO_FILE.open("w"))
-    return json.loads(TODO_FILE.read_text())
-
-def save_todos(todos):
-    json.dump(todos, TODO_FILE.open("w"))
-
-
 @click.group()
 def main():
     pass
+
+
+def setup_dir_and_file(TODO_FOLDER, TODO_FILE):
+    """Creates folder and json file if they don't exist yet."""
+    if not TODO_FOLDER.is_dir():
+        TODO_FOLDER.mkdir()
+    if not TODO_FILE.exists():
+        TODO_FILE.touch()
+        json.dump([], TODO_FILE.open("w"))
+
+
+def load_todos():
+    return json.loads(TODO_FILE.read_text())
+
+
+def save_todos(todos):
+    json.dump(todos, TODO_FILE.open("w"))
 
 
 @main.command()
@@ -41,41 +41,49 @@ def add(task):
 @main.command()
 def list():
     todos = load_todos()
-    success_story = False
 
     if not todos:
         click.echo("The TODO list is empty. 🥳")
         return
 
-    for task in todos:
-        if task["completed"] == False:
-            break
-    else:
-        success_story = True
+    click.echo("")
 
-    click.echo("")  
+    GREEN = "\x1b[38;5;10m"
+    RED = "\x1b[38;5;9m"
+    RESET = "\x1b[0m"
     for idx, task in enumerate(todos, 1):
-        status = (
-            "\x1b[38;5;10m✓\x1b[0m" if task["completed"] else "\x1b[38;5;9m✗\x1b[0m"
-        )
+        status = f"{GREEN}✓{RESET}" if task["completed"] else f"{RED}✗{RESET}"
         click.echo(f"{idx}. {status} {task['task']}")
 
-    click.echo("")  
-    if success_story:
+    click.echo("")
+    if all(task["completed"] for task in todos):
         click.echo("The TODO list has been completed. 😎🥳")
+
+
+def invalid_indexes(indexes):
+    invalid_indexes = [idx for idx in indexes if idx < 1 or idx > len(load_todos())]
+    if invalid_indexes:
+        click.echo(f"Invalid index(es): {', '.join(map(str, invalid_indexes))}")
+    return invalid_indexes
+
+
+def valid_indexes(indexes):
+    invalid = invalid_indexes(indexes)
+    return [idx for idx in indexes if idx not in invalid]
 
 
 @main.command()
 @click.argument("indexes", type=int, nargs=-1)
 def complete(indexes):
     todos = load_todos()
-    for idx in indexes:
-        if 1 <= idx <= len(todos):
+    tasks = valid_indexes(indexes)
+    for idx in tasks:
+        if not todos[idx - 1]["completed"]:
             todos[idx - 1]["completed"] = True
             save_todos(todos)
             click.echo(f"Task completed: {todos[idx - 1]['task']}")
         else:
-            click.echo("Invalid index")
+            click.echo(f"Task already completed: {todos[idx - 1]['task']}")
 
 
 @main.command()
@@ -84,11 +92,9 @@ def delete(indexes):
     todos = load_todos()
     tasks_to_delete = []
 
-    for idx in indexes:
-        if 1 <= idx <= len(todos):
-            tasks_to_delete.append(todos[idx - 1])
-        else:
-            click.echo(f"Invalid index: {idx}")
+    tasks = valid_indexes(indexes)
+    for idx in tasks:
+        tasks_to_delete.append(todos[idx - 1])
 
     tasks_deleted = []
     for task in tasks_to_delete:
@@ -104,7 +110,11 @@ def delete(indexes):
 @main.command()
 def clear():
     json.dump([], TODO_FILE.open("w"))
+    click.echo("The TODO list has been cleared.")
 
 
 if __name__ == "__main__":
+    TODO_FOLDER = Path.home() / "TODO"
+    TODO_FILE = TODO_FOLDER / ".todos.json"
+    setup_dir_and_file(TODO_FOLDER, TODO_FILE)
     main()
