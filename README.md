@@ -1,2 +1,2 @@
 # todo
-A minimalistic CLI todo app for productivity enthusiasts.
+A very minimalistic CLI todo app for productivity enthusiasts.

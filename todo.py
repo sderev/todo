@@ -116,3 +116,4 @@ if __name__ == "__main__":
     TODO_FILE = TODO_FOLDER / ".todos.json"
     setup_dir_and_file(TODO_FOLDER, TODO_FILE)
     main()
+
