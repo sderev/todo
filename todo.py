@@ -14,8 +14,7 @@ def main():
 
 def setup_dir_and_file(TODO_FOLDER, TODO_FILE):
     """Creates folder and json file if they don't exist yet."""
-    if not TODO_FOLDER.is_dir():
-        TODO_FOLDER.mkdir()
+    TODO_FOLDER.mkdir(exist_ok=True, parents=True)
     if not TODO_FILE.exists():
         json.dump([], TODO_FILE.open("w"))
 
