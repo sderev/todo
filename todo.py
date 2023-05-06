@@ -111,9 +111,11 @@ def clear():
     click.echo("The TODO list has been cleared.")
 
 
+TODO_FOLDER = Path.home() / "TODO"
+TODO_FILE = TODO_FOLDER / ".todos.json"
+
+
 if __name__ == "__main__":
-    TODO_FOLDER = Path.home() / "TODO"
-    TODO_FILE = TODO_FOLDER / ".todos.json"
     setup_dir_and_file(TODO_FOLDER, TODO_FILE)
     main()
 
