@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
 
-import subprocess
 import click
 import json
 from pathlib import Path
@@ -109,6 +108,20 @@ def delete(indexes):
 def clear():
     json.dump([], TODO_FILE.open("w"))
     click.echo("The TODO list has been cleared.")
+
+@main.command()
+def daily():
+    try:
+        with open("~/TODO/daily_tasks.txt", "r") as file:
+            daily_tasks = [task.strip() for task in file.readlines()]
+    except FileNotFoundError:
+        click.echo("No ~/TODO/daily_tasks.txt file found.")
+    else:
+        for task in daily_tasks:
+            todos = load_todos()
+            todos.append({"task": task, "completed": False})
+            save_todos(todos)
+            click.echo(f"Task added: {task}")
 
 
 TODO_FOLDER = Path.home() / "TODO"
