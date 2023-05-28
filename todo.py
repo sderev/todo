@@ -109,6 +109,7 @@ def clear():
     json.dump([], TODO_FILE.open("w"))
     click.echo("The TODO list has been cleared.")
 
+
 @main.command()
 def daily():
     try:
