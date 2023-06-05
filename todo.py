@@ -113,7 +113,7 @@ def clear():
 @main.command()
 def daily():
     try:
-        with open("~/TODO/daily_tasks.txt", "r") as file:
+        with open("/home/sebastien/TODO/daily_tasks.txt", "r") as file:
             daily_tasks = [task.strip() for task in file.readlines()]
     except FileNotFoundError:
         click.echo("No ~/TODO/daily_tasks.txt file found.")
