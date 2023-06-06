@@ -120,9 +120,10 @@ def daily():
     else:
         for task in daily_tasks:
             todos = load_todos()
-            todos.append({"task": task, "completed": False})
+            if not any(task == todo["task"] for todo in todos):
+                todos.append({"task": task, "completed": False})
+                click.echo(f"Task added: {task}")
             save_todos(todos)
-            click.echo(f"Task added: {task}")
 
 
 TODO_FOLDER = Path.home() / "TODO"
