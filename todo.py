@@ -101,7 +101,10 @@ def delete(indexes):
     save_todos(todos)
 
     if tasks_deleted:
-        click.echo(f"Task(s) deleted: {', '.join(tasks_deleted)}.")
+        for task in tasks_deleted:
+            click.echo(f"Task deleted: {task}")
+    else:
+        click.echo("No tasks deleted.")
 
 
 @main.command()
