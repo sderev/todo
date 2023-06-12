@@ -1,42 +1,59 @@
 #!/usr/bin/python3
 
-
 import click
 import json
 from pathlib import Path
 
+# Constants for colored output
+GREEN = "\x1b[38;5;10m"
+RED = "\x1b[38;5;9m"
+RESET = "\x1b[0m"
+
+# Constants for the TODO file and folder
+todo_folder = Path.home() / "TODO"
+todo_file = todo_folder / ".todos.json"
 
 @click.group()
 def main():
+    """Main function that groups all the commands."""
     pass
 
 
-def setup_dir_and_file(TODO_FOLDER, TODO_FILE):
+def setup_dir_and_file():
     """Creates folder and json file if they don't exist yet."""
-    TODO_FOLDER.mkdir(exist_ok=True, parents=True)
-    if not TODO_FILE.exists():
-        json.dump([], TODO_FILE.open("w"))
+    todo_folder.mkdir(exist_ok=True, parents=True)
+    if not todo_file.exists():
+        save_todos([])
 
 
 def load_todos():
-    return json.loads(TODO_FILE.read_text())
+    """Loads the TODOs from the file and returns them as a list."""
+    return json.loads(todo_file.read_text())
 
 
 def save_todos(todos):
-    json.dump(todos, TODO_FILE.open("w"))
+    """Saves the given TODOs list to the file."""
+    json.dump(todos, todo_file.open("w"))
 
 
 @main.command()
 @click.argument("task", nargs=-1)
 def add(task):
+    """Adds a new task to the TODO list."""
+    add_task(" ".join(task))
+
+
+def add_task(task):
+    """Adds a new task to the TODO list."""
     todos = load_todos()
-    todos.append({"task": " ".join(task), "completed": False})
+    todos.append({"task": task, "completed": False})
     save_todos(todos)
-    click.echo(f"Task added: {' '.join(task)}")
+    click.echo(f"Task added: {task}")
 
 
 @main.command()
 def list():
+    """Lists all tasks in the TODO list. Note: 'list' is intentionally used as the function name for better CLI usability."""
     todos = load_todos()
 
     if not todos:
@@ -45,9 +62,6 @@ def list():
 
     click.echo("")
 
-    GREEN = "\x1b[38;5;10m"
-    RED = "\x1b[38;5;9m"
-    RESET = "\x1b[0m"
     for idx, task in enumerate(todos, 1):
         status = f"{GREEN}✓{RESET}" if task["completed"] else f"{RED}✗{RESET}"
         click.echo(f"{idx}. {status} {task['task']}")
@@ -57,47 +71,35 @@ def list():
         click.echo("The TODO list has been completed. 😎🥳")
 
 
-def invalid_indexes(indexes):
-    invalid_indexes = [idx for idx in indexes if idx < 1 or idx > len(load_todos())]
-    if invalid_indexes:
-        click.echo(f"Invalid index(es): {', '.join(map(str, invalid_indexes))}")
-    return invalid_indexes
-
-
-def valid_indexes(indexes):
-    invalid = invalid_indexes(indexes)
-    return [idx for idx in indexes if idx not in invalid]
-
-
 @main.command()
 @click.argument("indexes", type=int, nargs=-1)
 def complete(indexes):
+    """Marks the given tasks as completed."""
     todos = load_todos()
-    tasks = valid_indexes(indexes)
-    for idx in tasks:
+    for idx in indexes:
+        if idx < 1 or idx > len(todos):
+            click.echo(f"Invalid index: {idx}")
+            continue
         if not todos[idx - 1]["completed"]:
             todos[idx - 1]["completed"] = True
-            save_todos(todos)
             click.echo(f"Task completed: {todos[idx - 1]['task']}")
         else:
             click.echo(f"Task already completed: {todos[idx - 1]['task']}")
+    save_todos(todos)
 
 
 @main.command()
 @click.argument("indexes", type=int, nargs=-1)
 def delete(indexes):
+    """Deletes the given tasks from the TODO list."""
     todos = load_todos()
-    tasks_to_delete = []
-
-    tasks = valid_indexes(indexes)
-    for idx in tasks:
-        tasks_to_delete.append(todos[idx - 1])
-
     tasks_deleted = []
-    for task in tasks_to_delete:
-        if task in todos:
-            todos.remove(task)
-            tasks_deleted.append(task["task"])
+    for idx in sorted(indexes, reverse=True):
+        if idx < 1 or idx > len(todos):
+            click.echo(f"Invalid index: {idx}")
+            continue
+        task_deleted = todos.pop(idx - 1)
+        tasks_deleted.append(task_deleted["task"])
     save_todos(todos)
 
     if tasks_deleted:
@@ -109,12 +111,14 @@ def delete(indexes):
 
 @main.command()
 def clear():
-    json.dump([], TODO_FILE.open("w"))
+    """Clears the TODO list."""
+    save_todos([])
     click.echo("The TODO list has been cleared.")
 
 
 @main.command()
 def daily():
+    """Adds daily tasks from a file to the TODO list."""
     try:
         with open("/home/sebastien/TODO/daily_tasks.txt", "r") as file:
             daily_tasks = [task.strip() for task in file.readlines()]
@@ -124,16 +128,10 @@ def daily():
         for task in daily_tasks:
             todos = load_todos()
             if not any(task == todo["task"] for todo in todos):
-                todos.append({"task": task, "completed": False})
-                click.echo(f"Task added: {task}")
-            save_todos(todos)
-
-
-TODO_FOLDER = Path.home() / "TODO"
-TODO_FILE = TODO_FOLDER / ".todos.json"
+                add_task(task)
 
 
 if __name__ == "__main__":
-    setup_dir_and_file(TODO_FOLDER, TODO_FILE)
+    setup_dir_and_file()
     main()
 
