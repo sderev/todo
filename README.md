@@ -1,3 +1,7 @@
+# TODO CLI Tool
+
+This is a command-line interface (CLI) tool for managing a TODO list. It supports adding tasks, marking tasks as completed, deleting tasks, listing all tasks, and even managing a list of daily tasks.
+
 <!-- TOC -->
 ## Table of Contents
 
@@ -9,14 +13,15 @@
     1. [Zsh](#zsh)
 <!-- /TOC -->
 
-# TODO CLI Tool
-
-This is a command-line interface (CLI) tool for managing a TODO list. It supports adding tasks, marking tasks as completed, deleting tasks, listing all tasks, and even managing a list of daily tasks.
-
 ## Installation
 
 1. Make sure you have Python 3.6 or later installed.
 2. Clone this repository to your local machine.
+
+    ```sh
+    git clone https://github.com/sderev/todo
+    ```
+
 3. Add the repository to your system's PATH.
 
 To add the repository to your system's PATH, you may need to modify your system's shell configuration file (like `~/.bashrc`, `~/.bash_profile`, or `~/.zshrc`), and add a line like the following, adjusting the path to match where you cloned the repository:
