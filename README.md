@@ -24,11 +24,21 @@ This is a command-line interface (CLI) tool for managing a TODO list. It support
 
 3. Add the repository to your system's PATH.
 
-To add the repository to your system's PATH, you may need to modify your system's shell configuration file (like `~/.bashrc`, `~/.bash_profile`, or `~/.zshrc`), and add a line like the following, adjusting the path to match where you cloned the repository:
+    To add the repository to your system's PATH, you may need to modify your system's shell configuration file (like `~/.bashrc`, `~/.bash_profile`, or `~/.zshrc`), and add a line like the following, adjusting the path to match where you cloned the repository:
 
-```bash
-export PATH=$PATH:/path/to/cloned/repository
-```
+    ```bash
+    export PATH=$PATH:/path/to/cloned/repository
+    ```
+
+    **OR**
+
+    * Create a symbolic link somewhere in your PATH to the `todo` file in the repository.
+
+        ```bash
+        ln -s /path/to/cloned/repository $PATH:/todo
+        ```
+
+        Replace `$PATH:/` with a folder in your PATH.
 
 After this, the script can be run from any location on the command line as follows:
 
