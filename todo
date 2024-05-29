@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 
-import click
 import json
 from pathlib import Path
+
+import click
 
 # Constants for colored output
 GREEN = "\x1b[38;5;10m"
@@ -12,6 +13,7 @@ RESET = "\x1b[0m"
 # Constants for the TODO file and folder
 todo_folder = Path.home() / "TODO"
 todo_file = todo_folder / ".todos.json"
+
 
 @click.group()
 def main():
@@ -134,4 +136,3 @@ def daily():
 if __name__ == "__main__":
     setup_dir_and_file()
     main()
-
