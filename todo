@@ -11,8 +11,8 @@ RED = "\x1b[38;5;9m"
 RESET = "\x1b[0m"
 
 # Constants for the TODO file and folder
-todo_folder = Path.home() / "TODO"
-todo_file = todo_folder / ".todos.json"
+TODO_FOLDER = Path.home() / "TODO"
+TODO_FILE = TODO_FOLDER / ".todos.json"
 
 
 @click.group()
@@ -23,19 +23,19 @@ def main():
 
 def setup_dir_and_file():
     """Creates folder and json file if they don't exist yet."""
-    todo_folder.mkdir(exist_ok=True, parents=True)
-    if not todo_file.exists():
+    TODO_FOLDER.mkdir(exist_ok=True, parents=True)
+    if not TODO_FILE.exists():
         save_todos([])
 
 
 def load_todos():
     """Loads the TODOs from the file and returns them as a list."""
-    return json.loads(todo_file.read_text())
+    return json.loads(TODO_FILE.read_text())
 
 
 def save_todos(todos):
     """Saves the given TODOs list to the file."""
-    json.dump(todos, todo_file.open("w"))
+    json.dump(todos, TODO_FILE.open("w"))
 
 
 @main.command()
