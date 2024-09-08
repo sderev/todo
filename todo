@@ -42,7 +42,11 @@ def save_todos(todos):
 @click.argument("task", nargs=-1)
 def add(task):
     """Adds a new task to the TODO list."""
-    add_task(" ".join(task))
+    if task:  # The argument is given as a tuple
+        task = " ".join(task)
+    else:
+        task = click.prompt("Enter the task")
+    add_task(task)
 
 
 def add_task(task):
