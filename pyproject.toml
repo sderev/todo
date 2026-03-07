@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling>=1.26.3"]
+build-backend = "hatchling.build"
+
+[project]
+name = "todo-daily-notes"
+version = "0.1.0"
+description = "Create and open daily markdown notes from the terminal"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "click>=8.1.7",
+    "click-default-group>=1.2.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.5",
+]
+
+[project.scripts]
+todo = "todocli.cli:main"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["todocli"]

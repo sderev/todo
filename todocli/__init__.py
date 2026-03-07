@@ -1,0 +1,1 @@
+"""`todo` daily note CLI."""

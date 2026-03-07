@@ -1,87 +1,96 @@
-# TODO CLI Tool
+# `todo`
 
-This is a command-line interface (CLI) tool for managing a TODO list. It supports adding tasks, marking tasks as completed, deleting tasks, listing all tasks, and even managing a list of daily tasks.
+`todo` is a small CLI to create and open daily markdown notes.
 
-<!-- TOC -->
-## Table of Contents
+When a new note is created for today, the CLI can copy unfinished checkbox tasks from the latest previous note.
 
-1. [Installation](#installation)
-1. [Usage](#usage)
-1. [Daily Tasks](#daily-tasks)
-1. [Command Completion](#command-completion)
-    1. [Bash](#bash)
-    1. [Zsh](#zsh)
-<!-- /TOC -->
-
-## Installation
-
-1. Make sure you have Python 3.6 or later installed.
-2. Clone this repository to your local machine.
-
-    ```sh
-    git clone https://github.com/sderev/todo
-    ```
-
-3. Add the repository to your system's PATH.
-
-    To add the repository to your system's PATH, you may need to modify your system's shell configuration file (like `~/.bashrc`, `~/.bash_profile`, or `~/.zshrc`), and add a line like the following, adjusting the path to match where you cloned the repository:
-
-    ```bash
-    export PATH=$PATH:/path/to/cloned/repository
-    ```
-
-    **OR**
-
-    * Create a symbolic link somewhere in your PATH to the `todo` file in the repository.
-
-        ```bash
-        ln -s /path/to/cloned/repository $PATH:/todo
-        ```
-
-        Replace `$PATH:/` with a folder in your PATH.
-
-After this, the script can be run from any location on the command line as follows:
+## Install from GitHub
 
 ```bash
-todo add "Learn about Podman containers"
+uv tool install --force git+https://github.com/sderev/todo
 ```
 
-## Usage
+## Run From A Clone
 
-Here are the available commands:
-
-* Add a new task: `todo add "Buy groceries"`
-* List all tasks: `todo list`
-* Mark tasks as completed: `todo complete 1 2`
-* Delete tasks: `todo delete 1 2`
-* Clear all tasks: `todo clear`
-* Add daily tasks: `todo daily`
-
-## Daily Tasks
-
-You can create a list of daily tasks to be added automatically. These tasks should be written in a file named `daily_tasks.txt` located in the `~/TODO/` directory. The tasks should be written one per line.
-
-Please note that the path to the `daily_tasks.txt` file is hardcoded. If you need to use a different path, you will need to modify the `daily()` function in the script.
-
-## Command Completion
-
-In the `completion` directory of the repo, you will find completion files for bash and zsh. To use these, follow the instructions specific to your shell:
-
-### Bash
-
-Copy the `todo-completion.bash` file to the `/etc/bash_completion.d/` directory:
+Use the repo-local wrapper:
 
 ```bash
-sudo cp completion/todo-completion.bash /etc/bash_completion.d/todo
+./todo --help
 ```
 
-### Zsh
+It delegates to `uv run --project <repo-root> python -m todocli`, so it still works when you run `./todo` from outside the repo root.
 
-Source the `todo-completion.zsh` file in your `~/.zshrc` file:
+## Python Version
+
+* Python 3.13+
+
+## Commands
+
+* `todo`
+  * Default command.
+  * Open today's note (create it if missing).
+* `todo today`
+  * Same as `todo`.
+* `todo today --no-carry`
+  * Create/open today's note without carry-over.
+* `todo yesterday`
+  * Open yesterday's note (create if missing).
+* `todo open YYYY-MM-DD`
+  * Open a specific date note (create if missing).
+* `todo init`
+  * Create config file and notes directory.
+* `todo config`
+  * Show effective config values.
+
+## Config File
+
+Path:
+
+* `$XDG_CONFIG_HOME/todo/config.toml` (defaults to `~/.config/todo/config.toml`)
+
+Example:
+
+```toml
+notes_dir = "~/TODO/notes"
+layout = "year_month"
+carry_over_mode = "auto"
+```
+
+Fields:
+
+* `notes_dir`
+  * Base folder for notes.
+  * `todo init` stores it as an absolute path, so later commands do not depend on the current working directory.
+* `layout`
+  * `year_month` or `flat`.
+  * `year_month` stores notes in `YYYY/MM/YYYY-MM-DD.md`.
+* `carry_over_mode`
+  * `auto`: always copy unfinished tasks from latest previous note.
+  * `prompt`: ask for confirmation before copying.
+  * `off`: never copy unfinished tasks.
+
+## Carry-over Rules
+
+When `todo` creates today's note:
+
+* It finds the latest previous note by date (not strictly yesterday).
+* It extracts markdown checkboxes with unchecked mark: `- [ ] ...`.
+* It ignores checked boxes: `- [x] ...` and `- [X] ...`.
+* It keeps section context from note headings (`## ...`) and carried subsections (`### ...`).
+* It preserves original section names when a carry-over section is carried again on a later day.
+* Tasks that appear before any section heading are grouped under a `General` section.
+* It writes a `## Carry-over from YYYY-MM-DD` section in today's note.
+
+## Development
+
+Install deps:
 
 ```bash
-echo "source /path/to/cloned/repository/completion/todo-completion.zsh" >> ~/.zshrc
+uv sync --extra dev
 ```
 
-Remember to replace `/path/to/cloned/repository` with the actual path to the cloned repository.
+Run tests:
 
+```bash
+uv run pytest
+```
