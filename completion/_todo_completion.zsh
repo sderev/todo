@@ -31,5 +31,11 @@ _todo_completion() {
     fi
 }
 
-compdef _todo_completion todo;
+if [[ $zsh_eval_context[-1] == loadautofunc ]]; then
+    # autoload from fpath, call function directly
+    _todo_completion "$@"
+else
+    # eval/source/. command, register function for later
+    compdef _todo_completion todo
+fi
 

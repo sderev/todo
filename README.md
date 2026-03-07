@@ -42,6 +42,25 @@ It delegates to `uv run --project <repo-root> python -m todocli`, so it still wo
 * `todo config`
   * Show effective config values.
 
+## Shell Completion
+
+Completion files are generated from Click 8 shell-completion support.
+
+* Bash: `completion/_todo_completion.bash`
+* Zsh: `completion/_todo_completion.zsh`
+
+Regenerate them:
+
+```bash
+_TODO_COMPLETE=bash_source ./todo > completion/_todo_completion.bash
+_TODO_COMPLETE=zsh_source ./todo > completion/_todo_completion.zsh
+```
+
+Load from your shell config:
+
+* Bash (`~/.bashrc`): `source /path/to/repo/completion/_todo_completion.bash`
+* Zsh (`~/.zshrc`): `source /path/to/repo/completion/_todo_completion.zsh`
+
 ## Config File
 
 Path:
