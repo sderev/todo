@@ -7,7 +7,7 @@ from .config import Config
 
 H2_RE = re.compile(r"^\s*##\s+(?P<title>.+?)\s*$")
 H3_RE = re.compile(r"^\s*###\s+(?P<title>.+?)\s*$")
-CHECKBOX_RE = re.compile(r"^\s*[-*]\s+\[(?P<mark>[ xX])\]\s+(?P<body>.+?)\s*$")
+CHECKBOX_RE = re.compile(r"^\s*(?:[-*]\s+)?\[(?P<mark>[ xX])\]\s+(?P<body>.+?)\s*$")
 CARRY_OVER_PREFIX = "Carry-over from "
 CATCHUP_START_MARKER = "<!-- todo catchup start -->"
 CATCHUP_END_MARKER = "<!-- todo catchup end -->"
