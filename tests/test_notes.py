@@ -34,6 +34,25 @@ def test_collect_unchecked_tasks_groups_by_h2_heading() -> None:
     }
 
 
+def test_collect_unchecked_tasks_accepts_bare_checkbox_lines() -> None:
+    markdown = """# 2026-03-06
+
+## Campus network
+[ ] Check switch room B
+[x] Done item
+
+## Storage
+- [ ] Validate snapshots
+"""
+
+    grouped = collect_unchecked_tasks(markdown)
+
+    assert grouped == {
+        "Campus network": ["Check switch room B"],
+        "Storage": ["Validate snapshots"],
+    }
+
+
 def test_collect_unchecked_tasks_handles_no_h2_with_general_bucket() -> None:
     markdown = """# 2026-03-06
 - [ ] Follow up with facilities

@@ -116,6 +116,51 @@ def test_today_carries_from_latest_previous_note(
     assert fake_editor == [today_note]
 
 
+def test_today_carries_from_bare_checkbox_items(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(cfg_path, notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+    prior_note = note_path_for_date(config, date(2026, 3, 5))
+    prior_note.parent.mkdir(parents=True, exist_ok=True)
+    prior_note.write_text(
+        """# 2026-03-05
+
+## first
+[ ] a
+[ ] b
+[ ] c
+
+## second
+[ ] d
+[x] e
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 7))
+
+    result = runner.invoke(cli.main, ["today"])
+
+    assert result.exit_code == 0
+    today_note = note_path_for_date(config, date(2026, 3, 7))
+    content = today_note.read_text(encoding="utf-8")
+
+    assert "## Carry-over from 2026-03-05" in content
+    assert "- [ ] a" in content
+    assert "- [ ] b" in content
+    assert "- [ ] c" in content
+    assert "- [ ] d" in content
+    assert "- [ ] e" not in content
+    assert fake_editor == [today_note]
+
+
 def test_today_preserves_section_context_across_multiple_carry_overs(
     runner: CliRunner,
     isolated_home: dict[str, Path],
