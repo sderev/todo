@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to prepare (e.g., 0.1.2)"
+        description: "Version to prepare (e.g., 0.1.3)"
         required: true
         type: string
 
@@ -28,6 +28,13 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - name: Set project version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          uv version "$VERSION" --frozen
 
       - name: Collect changelog fragments
         env:
@@ -55,6 +62,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md changelog.d/
+          git add pyproject.toml CHANGELOG.md changelog.d/
           git commit -m "Collect changelog for v${VERSION}"
           git push
