@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+
 from todocli.config import Config, config_path, load_config, write_config
 
 

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+
 from todocli import cli
 from todocli.config import Config
 from todocli.config import write_config as write_app_config

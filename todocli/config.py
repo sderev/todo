@@ -1,9 +1,8 @@
 import json
 import os
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-
-import tomllib
 
 APP_NAME = "todo"
 DEFAULT_NOTES_DIR = "~/TODO/notes"

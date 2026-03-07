@@ -12,8 +12,8 @@ set -euo pipefail
 # * pass extra pytest args via `GATE_PYTEST_ARGS`, for example:
 #   GATE_PYTEST_ARGS='-k catchup' gate
 
-uvx ruff format --check .
-uvx ruff check .
+uvx ruff format --check --config pyproject.toml .
+uvx ruff check --config pyproject.toml .
 
 py_versions=(3.13 3.14)
 

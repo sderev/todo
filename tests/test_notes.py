@@ -129,7 +129,9 @@ def test_collect_unchecked_tasks_preserves_generated_carry_over_sections() -> No
     }
 
 
-def test_find_latest_note_before_ignores_invalid_and_future_files(tmp_path: Path) -> None:
+def test_find_latest_note_before_ignores_invalid_and_future_files(
+    tmp_path: Path,
+) -> None:
     notes_dir = tmp_path / "notes"
     (notes_dir / "2026" / "03").mkdir(parents=True, exist_ok=True)
 
@@ -185,7 +187,9 @@ def test_list_dated_notes_respects_since_inclusive(tmp_path: Path) -> None:
     assert [note.note_date for note in notes] == [date(2026, 3, 5), date(2026, 3, 6)]
 
 
-def test_scan_catchup_tasks_keeps_latest_checkbox_state_per_task_key(tmp_path: Path) -> None:
+def test_scan_catchup_tasks_keeps_latest_checkbox_state_per_task_key(
+    tmp_path: Path,
+) -> None:
     notes_dir = tmp_path / "notes"
     config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
 
