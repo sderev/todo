@@ -19,7 +19,8 @@ todo                             # open today's note in $EDITOR
 ```
 
 On first run without `init`, `todo` creates a default config at
-`~/.config/todo/config.toml` and stores notes under `~/TODO/notes/`.
+`~/.config/todo/config.toml` (or `$XDG_CONFIG_HOME/todo/config.toml` if set)
+and stores notes under `~/TODO/notes/`.
 
 ## Usage
 
@@ -69,8 +70,10 @@ for confirmation. Use `--yes` to skip that prompt.
 
 ## Config
 
-Location: `$XDG_CONFIG_HOME/todo/config.toml` (defaults to
-`~/.config/todo/config.toml`).
+Location: `~/.config/todo/config.toml` by default.
+
+If `XDG_CONFIG_HOME` is set, `todo` uses
+`$XDG_CONFIG_HOME/todo/config.toml`.
 
 ```toml
 notes_dir = "~/TODO/notes"

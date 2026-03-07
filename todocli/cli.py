@@ -30,6 +30,21 @@ from .notes import (
 )
 
 CATCHUP_CONFIRM_THRESHOLD = 500
+ACTION_COLORS = {
+    "Created": "green",
+    "Updated": "yellow",
+    "Opened": "cyan",
+}
+
+
+def styled_label(label: str) -> str:
+    return click.style(label, bold=True)
+
+
+def emit_action(action: str, path: Path) -> None:
+    click.echo(
+        f"{click.style(action, fg=ACTION_COLORS[action], bold=True)}: {path}"
+    )
 
 
 def today_date() -> date:
@@ -65,7 +80,7 @@ def create_or_open_note(
 
     click.edit(filename=str(note_path))
     action = "Created" if created else "Opened"
-    click.echo(f"{action}: {note_path}")
+    emit_action(action, note_path)
     return note_path
 
 
@@ -116,9 +131,9 @@ def print_catchup_summary(
     scanned_start: date | None,
     scanned_end: date | None,
 ) -> None:
-    click.echo(f"Scanned files: {scanned_files_count}")
-    click.echo(f"Unresolved tasks: {unresolved_tasks_count}")
-    click.echo(f"Date range: {format_scan_range(scanned_start, scanned_end)}")
+    click.echo(f"{styled_label('Scanned files')}: {scanned_files_count}")
+    click.echo(f"{styled_label('Unresolved tasks')}: {unresolved_tasks_count}")
+    click.echo(f"{styled_label('Date range')}: {format_scan_range(scanned_start, scanned_end)}")
 
 
 def create_or_update_catchup_note(
@@ -148,7 +163,7 @@ def create_or_update_catchup_note(
         action = "Updated"
     else:
         action = "Opened"
-    click.echo(f"{action}: {note_path}")
+    emit_action(action, note_path)
     return note_path
 
 
@@ -185,7 +200,7 @@ def init(
     carry_over_mode: str,
     force: bool,
 ) -> None:
-    """Create `$XDG_CONFIG_HOME/todo/config.toml` (defaults to `~/.config/todo/config.toml`)."""
+    """Create `~/.config/todo/config.toml` (or `$XDG_CONFIG_HOME/todo/config.toml` if set)."""
     cfg_path = config_path()
     if cfg_path.exists() and not force:
         raise click.ClickException(f"Config already exists at: {cfg_path}")
@@ -203,8 +218,8 @@ def init(
     )
     write_config(cfg_path, config)
 
-    click.echo(f"Config written: {cfg_path}")
-    click.echo(f"Notes directory: {resolved_notes_dir}")
+    click.echo(f"{styled_label('Config written')}: {cfg_path}")
+    click.echo(f"{styled_label('Notes directory')}: {resolved_notes_dir}")
 
 
 @main.command()
@@ -248,12 +263,12 @@ def open_note(note_date: datetime) -> None:
 def show_config() -> None:
     """Show effective config values."""
     state = load_config_or_fail(create_if_missing=False)
-    click.echo(f"Config file: {state.path}")
+    click.echo(f"{styled_label('Config file')}: {state.path}")
     if not state.path.exists():
-        click.echo("(file does not exist yet; showing defaults)")
-    click.echo(f"notes_dir: {state.config.notes_dir}")
-    click.echo(f"layout: {state.config.layout}")
-    click.echo(f"carry_over_mode: {state.config.carry_over_mode}")
+        click.echo(click.style("(file does not exist yet; showing defaults)", fg="yellow"))
+    click.echo(f"{styled_label('notes_dir')}: {state.config.notes_dir}")
+    click.echo(f"{styled_label('layout')}: {state.config.layout}")
+    click.echo(f"{styled_label('carry_over_mode')}: {state.config.carry_over_mode}")
 
 
 @main.command()
@@ -295,18 +310,20 @@ def catchup(since: datetime | None, dry_run: bool, yes: bool) -> None:
             ),
             default=False,
         ):
-            click.echo("Cancelled.")
+            click.secho("Cancelled.", fg="yellow", bold=True)
             return
 
     scan_result = scan_catchup_tasks_from_notes(notes)
     unresolved_tasks_count = sum(len(tasks) for tasks in scan_result.grouped_tasks.values())
 
     if dry_run:
-        click.echo(f"Target note: {note_path_for_date(state.config, target_date)}")
+        click.echo(
+            f"{styled_label('Target note')}: {note_path_for_date(state.config, target_date)}"
+        )
         if scan_result.grouped_tasks:
             click.echo(format_catchup_preview(scan_result.grouped_tasks))
         else:
-            click.echo("Would import: nothing")
+            click.echo(f"{styled_label('Would import')}: nothing")
 
         print_catchup_summary(
             scanned_files_count=scan_result.scanned_files_count,

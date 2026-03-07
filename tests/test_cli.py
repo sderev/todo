@@ -448,14 +448,14 @@ def test_repo_wrapper_runs_without_traceback(tmp_path: Path) -> None:
     assert "Traceback" not in result.stderr
 
 
-def test_init_help_mentions_xdg_config_location(runner: CliRunner) -> None:
+def test_init_help_mentions_default_config_location(runner: CliRunner) -> None:
     result = runner.invoke(cli.main, ["init", "--help"])
 
     assert result.exit_code == 0
     help_text = " ".join(result.output.split())
     assert (
-        "Create `$XDG_CONFIG_HOME/todo/config.toml` "
-        "(defaults to `~/.config/todo/config.toml`)."
+        "Create `~/.config/todo/config.toml` "
+        "(or `$XDG_CONFIG_HOME/todo/config.toml` if set)."
     ) in help_text
 
 
