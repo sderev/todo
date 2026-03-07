@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-
 from todocli import cli
-from todocli.config import Config, write_config as write_app_config
+from todocli.config import Config
+from todocli.config import write_config as write_app_config
 from todocli.notes import note_path_for_date
 
 
@@ -454,8 +454,7 @@ def test_init_help_mentions_default_config_location(runner: CliRunner) -> None:
     assert result.exit_code == 0
     help_text = " ".join(result.output.split())
     assert (
-        "Create `~/.config/todo/config.toml` "
-        "(or `$XDG_CONFIG_HOME/todo/config.toml` if set)."
+        "Create `~/.config/todo/config.toml` (or `$XDG_CONFIG_HOME/todo/config.toml` if set)."
     ) in help_text
 
 

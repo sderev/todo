@@ -1,18 +1,18 @@
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from tomllib import TOMLDecodeError
 
 import click
 from click_default_group import DefaultGroup
+from tomllib import TOMLDecodeError
 
 from .config import (
     ALLOWED_CARRY_OVER_MODES,
     ALLOWED_LAYOUTS,
-    Config,
-    ConfigState,
     DEFAULT_CARRY_OVER_MODE,
     DEFAULT_LAYOUT,
     DEFAULT_NOTES_DIR,
+    Config,
+    ConfigState,
     config_path,
     load_config,
     write_config,
@@ -22,8 +22,8 @@ from .notes import (
     find_latest_note_before,
     list_dated_notes,
     note_path_for_date,
-    render_catchup_block,
     render_carry_over,
+    render_catchup_block,
     render_note_header,
     replace_catchup_block,
     scan_catchup_tasks_from_notes,
@@ -42,9 +42,7 @@ def styled_label(label: str) -> str:
 
 
 def emit_action(action: str, path: Path) -> None:
-    click.echo(
-        f"{click.style(action, fg=ACTION_COLORS[action], bold=True)}: {path}"
-    )
+    click.echo(f"{click.style(action, fg=ACTION_COLORS[action], bold=True)}: {path}")
 
 
 def today_date() -> date:
@@ -146,9 +144,7 @@ def create_or_update_catchup_note(
 
     existed = note_path.exists()
     original_content = (
-        note_path.read_text(encoding="utf-8")
-        if existed
-        else render_note_header(note_date) + "\n"
+        note_path.read_text(encoding="utf-8") if existed else render_note_header(note_date) + "\n"
     )
     catchup_block = render_catchup_block(grouped_tasks) if grouped_tasks else None
     updated_content = replace_catchup_block(original_content, catchup_block)
@@ -286,10 +282,7 @@ def show_config() -> None:
 @click.option(
     "--yes",
     is_flag=True,
-    help=(
-        "Skip confirmation when scanning many files "
-        f"(more than {CATCHUP_CONFIRM_THRESHOLD})."
-    ),
+    help=(f"Skip confirmation when scanning many files (more than {CATCHUP_CONFIRM_THRESHOLD})."),
 )
 def catchup(since: datetime | None, dry_run: bool, yes: bool) -> None:
     """Recover unresolved tasks from historical notes into today's note."""
@@ -304,10 +297,7 @@ def catchup(since: datetime | None, dry_run: bool, yes: bool) -> None:
     )
     if len(notes) > CATCHUP_CONFIRM_THRESHOLD and not yes:
         if not click.confirm(
-            (
-                f"About to scan {len(notes)} dated note file(s). "
-                "Continue?"
-            ),
+            (f"About to scan {len(notes)} dated note file(s). Continue?"),
             default=False,
         ):
             click.secho("Cancelled.", fg="yellow", bold=True)

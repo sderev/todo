@@ -8,9 +8,9 @@ from todocli.notes import (
     list_dated_notes,
     note_path_for_date,
     parse_note_date,
-    replace_catchup_block,
     render_carry_over,
     render_catchup_block,
+    replace_catchup_block,
     scan_catchup_tasks,
 )
 

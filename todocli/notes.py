@@ -1,7 +1,7 @@
+import re
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-import re
 
 from .config import Config
 
@@ -61,7 +61,9 @@ def parse_note_date(path: Path) -> date | None:
         return None
 
 
-def list_dated_notes(notes_dir: Path, *, before: date, since: date | None = None) -> list[PriorNote]:
+def list_dated_notes(
+    notes_dir: Path, *, before: date, since: date | None = None
+) -> list[PriorNote]:
     if not notes_dir.exists():
         return []
 
@@ -188,7 +190,9 @@ def scan_catchup_tasks_from_notes(notes: list[PriorNote]) -> CatchupScanResult:
     )
 
 
-def scan_catchup_tasks(notes_dir: Path, *, before: date, since: date | None = None) -> CatchupScanResult:
+def scan_catchup_tasks(
+    notes_dir: Path, *, before: date, since: date | None = None
+) -> CatchupScanResult:
     notes = list_dated_notes(notes_dir, before=before, since=since)
     return scan_catchup_tasks_from_notes(notes)
 
@@ -222,7 +226,9 @@ def replace_catchup_block(markdown: str, block: str | None) -> str:
         end_idx += len(CATCHUP_END_MARKER)
         prefix = markdown[:start_idx].rstrip()
         suffix = markdown[end_idx:].lstrip("\n")
-        parts = [part for part in (prefix, block.rstrip() if block else "", suffix.rstrip()) if part]
+        parts = [
+            part for part in (prefix, block.rstrip() if block else "", suffix.rstrip()) if part
+        ]
         if not parts:
             return ""
         return "\n\n".join(parts) + "\n"

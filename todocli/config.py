@@ -2,6 +2,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+
 import tomllib
 
 APP_NAME = "todo"
@@ -53,9 +54,7 @@ def write_config(path: Path, config: Config) -> None:
 
 def _validate_notes_dir(value: object, *, base_dir: Path | None = None) -> Path:
     if not isinstance(value, (str, os.PathLike)):
-        raise ValueError(
-            f"Invalid `notes_dir` value: {value!r}. Expected a path string."
-        )
+        raise ValueError(f"Invalid `notes_dir` value: {value!r}. Expected a path string.")
 
     notes_dir = Path(value).expanduser()
     if notes_dir.is_absolute():
@@ -77,9 +76,7 @@ def _validate_layout(value: str) -> str:
 def _validate_carry_over_mode(value: str) -> str:
     if value not in ALLOWED_CARRY_OVER_MODES:
         allowed = ", ".join(sorted(ALLOWED_CARRY_OVER_MODES))
-        raise ValueError(
-            f"Invalid `carry_over_mode` value: {value!r}. Expected one of: {allowed}."
-        )
+        raise ValueError(f"Invalid `carry_over_mode` value: {value!r}. Expected one of: {allowed}.")
     return value
 
 

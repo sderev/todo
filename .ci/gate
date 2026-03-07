@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Local CI for `todo`.
+#
+# Runs:
+# * Ruff format check
+# * Ruff lint
+# * pytest on supported Python versions
+#
+# Optional:
+# * pass extra pytest args via `GATE_PYTEST_ARGS`, for example:
+#   GATE_PYTEST_ARGS='-k catchup' gate
+
+uvx ruff format --check .
+uvx ruff check .
+
+py_versions=(3.13 3.14)
+
+pytest_args=()
+if [ -n "${GATE_PYTEST_ARGS:-}" ]; then
+    read -r -a extra_args <<<"${GATE_PYTEST_ARGS}"
+    pytest_args+=("${extra_args[@]}")
+fi
+
+if [ -d "tests" ]; then
+    for py in "${py_versions[@]}"; do
+        echo "Testing with Python ${py}..."
+        uv run --python "${py}" --extra dev -- pytest -q tests/ "${pytest_args[@]}"
+    done
+else
+    echo "Warning: no tests/ directory; skipping pytest" >&2
+fi

@@ -1,5 +1,5 @@
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 
 def test_repo_launcher_uses_project_environment(tmp_path: Path) -> None:
