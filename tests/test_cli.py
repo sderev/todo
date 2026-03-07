@@ -475,3 +475,264 @@ def test_config_command_rejects_invalid_notes_dir_type(
     assert result.exit_code != 0
     assert "Error: Invalid `notes_dir` value" in result.output
     assert "Traceback" not in result.output
+
+
+def test_catchup_dry_run_prints_grouped_preview_without_creating_today_note(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(cfg_path, notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+    march_5 = note_path_for_date(config, date(2026, 3, 5))
+    march_5.parent.mkdir(parents=True, exist_ok=True)
+    march_5.write_text(
+        """# 2026-03-05
+
+## Ops
+- [ ] Update package index
+""",
+        encoding="utf-8",
+    )
+
+    march_6 = note_path_for_date(config, date(2026, 3, 6))
+    march_6.parent.mkdir(parents=True, exist_ok=True)
+    march_6.write_text(
+        """# 2026-03-06
+
+## Ops
+- [x] Update package index
+
+## Tickets
+- [ ] Reply to NOC
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 9))
+
+    result = runner.invoke(cli.main, ["catchup", "--since", "2026-03-05", "--dry-run"])
+
+    assert result.exit_code == 0
+    today_note = note_path_for_date(config, date(2026, 3, 9))
+    assert not today_note.exists()
+    assert "Target note:" in result.output
+    assert "Would import:" in result.output
+    assert "### Tickets" in result.output
+    assert "- [ ] Reply to NOC" in result.output
+    assert "Update package index" not in result.output
+    assert "Scanned files: 2" in result.output
+    assert "Unresolved tasks: 1" in result.output
+    assert "Date range: 2026-03-05..2026-03-06" in result.output
+    assert fake_editor == []
+
+
+def test_catchup_large_scan_can_cancel_with_confirmation_prompt(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(cfg_path, notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+    for note_day in (date(2026, 3, 5), date(2026, 3, 6)):
+        note_path = note_path_for_date(config, note_day)
+        note_path.parent.mkdir(parents=True, exist_ok=True)
+        note_path.write_text("# note\n\n## Ops\n- [ ] Pending task\n", encoding="utf-8")
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 9))
+    monkeypatch.setattr(cli, "CATCHUP_CONFIRM_THRESHOLD", 1)
+
+    prompted: dict[str, object] = {}
+
+    def _confirm(text: str, default: bool = False) -> bool:
+        prompted["text"] = text
+        prompted["default"] = default
+        return False
+
+    monkeypatch.setattr(cli.click, "confirm", _confirm)
+
+    result = runner.invoke(cli.main, ["catchup"])
+
+    assert result.exit_code == 0
+    assert "Cancelled." in result.output
+    assert prompted["default"] is False
+    assert "About to scan 2 dated note file(s). Continue?" in str(prompted["text"])
+
+    today_note = note_path_for_date(config, date(2026, 3, 9))
+    assert not today_note.exists()
+    assert fake_editor == []
+
+
+def test_catchup_yes_skips_large_scan_confirmation(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(cfg_path, notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+    for note_day in (date(2026, 3, 5), date(2026, 3, 6)):
+        note_path = note_path_for_date(config, note_day)
+        note_path.parent.mkdir(parents=True, exist_ok=True)
+        note_path.write_text("# note\n\n## Ops\n- [ ] Pending task\n", encoding="utf-8")
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 9))
+    monkeypatch.setattr(cli, "CATCHUP_CONFIRM_THRESHOLD", 1)
+
+    def _fail_confirm(*args, **kwargs):
+        raise AssertionError("confirm should be skipped when --yes is set")
+
+    monkeypatch.setattr(cli.click, "confirm", _fail_confirm)
+
+    result = runner.invoke(cli.main, ["catchup", "--yes", "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "Scanned files: 2" in result.output
+    assert fake_editor == []
+
+
+def test_catchup_upserts_managed_section_and_opens_today_note(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(cfg_path, notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+    march_5 = note_path_for_date(config, date(2026, 3, 5))
+    march_5.parent.mkdir(parents=True, exist_ok=True)
+    march_5.write_text(
+        """# 2026-03-05
+
+## Ops
+- [ ] Update package index
+""",
+        encoding="utf-8",
+    )
+
+    march_6 = note_path_for_date(config, date(2026, 3, 6))
+    march_6.parent.mkdir(parents=True, exist_ok=True)
+    march_6.write_text(
+        """# 2026-03-06
+
+## Carry-over from 2026-03-05
+
+### Ops
+- [x] Update package index
+
+### Tickets
+- [ ] Reply to NOC
+""",
+        encoding="utf-8",
+    )
+
+    today_note = note_path_for_date(config, date(2026, 3, 9))
+    today_note.parent.mkdir(parents=True, exist_ok=True)
+    today_note.write_text(
+        """# 2026-03-09
+
+Manual note
+
+<!-- todo catchup start -->
+## Catch-up
+
+### Ops
+- [ ] stale task
+<!-- todo catchup end -->
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 9))
+
+    result = runner.invoke(cli.main, ["catchup"])
+
+    assert result.exit_code == 0
+    content = today_note.read_text(encoding="utf-8")
+    assert content.count("<!-- todo catchup start -->") == 1
+    assert "stale task" not in content
+    assert "Manual note" in content
+    assert "### Tickets" in content
+    assert "- [ ] Reply to NOC" in content
+    assert "Update package index" not in content
+    assert fake_editor == [today_note]
+    assert "Updated:" in result.output
+    assert "Scanned files: 2" in result.output
+    assert "Unresolved tasks: 1" in result.output
+
+
+def test_catchup_without_unresolved_tasks_removes_managed_section(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(cfg_path, notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+    march_5 = note_path_for_date(config, date(2026, 3, 5))
+    march_5.parent.mkdir(parents=True, exist_ok=True)
+    march_5.write_text(
+        """# 2026-03-05
+
+## Ops
+- [ ] Update package index
+""",
+        encoding="utf-8",
+    )
+
+    march_6 = note_path_for_date(config, date(2026, 3, 6))
+    march_6.parent.mkdir(parents=True, exist_ok=True)
+    march_6.write_text(
+        """# 2026-03-06
+
+## Ops
+- [x] Update package index
+""",
+        encoding="utf-8",
+    )
+
+    today_note = note_path_for_date(config, date(2026, 3, 9))
+    today_note.parent.mkdir(parents=True, exist_ok=True)
+    today_note.write_text(
+        """# 2026-03-09
+
+Manual note
+
+<!-- todo catchup start -->
+## Catch-up
+
+### Ops
+- [ ] stale task
+<!-- todo catchup end -->
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 9))
+
+    result = runner.invoke(cli.main, ["catchup"])
+
+    assert result.exit_code == 0
+    content = today_note.read_text(encoding="utf-8")
+    assert "<!-- todo catchup start -->" not in content
+    assert "stale task" not in content
+    assert "Manual note" in content
+    assert fake_editor == [today_note]
+    assert "Unresolved tasks: 0" in result.output

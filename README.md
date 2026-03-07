@@ -1,73 +1,76 @@
 # `todo`
 
-`todo` is a small CLI to create and open daily markdown notes.
+A CLI that creates and opens daily markdown notes. When a new note is
+created, it can carry over unfinished checkbox tasks from the previous note.
 
-When a new note is created for today, the CLI can copy unfinished checkbox tasks from the latest previous note.
-
-## Install from GitHub
+## Install
 
 ```bash
 uv tool install --force git+https://github.com/sderev/todo
 ```
 
-## Run From A Clone
+Requires Python 3.13+.
 
-Use the repo-local wrapper:
-
-```bash
-./todo --help
-```
-
-It delegates to `uv run --project <repo-root> python -m todocli`, so it still works when you run `./todo` from outside the repo root.
-
-## Python Version
-
-* Python 3.13+
-
-## Commands
-
-* `todo`
-  * Default command.
-  * Open today's note (create it if missing).
-* `todo today`
-  * Same as `todo`.
-* `todo today --no-carry`
-  * Create/open today's note without carry-over.
-* `todo yesterday`
-  * Open yesterday's note (create if missing).
-* `todo open YYYY-MM-DD`
-  * Open a specific date note (create if missing).
-* `todo init`
-  * Create config file and notes directory.
-* `todo config`
-  * Show effective config values.
-
-## Shell Completion
-
-Completion files are generated from Click 8 shell-completion support.
-
-* Bash: `completion/_todo_completion.bash`
-* Zsh: `completion/_todo_completion.zsh`
-
-Regenerate them:
+## Quick start
 
 ```bash
-_TODO_COMPLETE=bash_source ./todo > completion/_todo_completion.bash
-_TODO_COMPLETE=zsh_source ./todo > completion/_todo_completion.zsh
+todo init                        # create config + notes directory
+todo                             # open today's note in $EDITOR
 ```
 
-Load from your shell config:
+On first run without `init`, `todo` creates a default config at
+`~/.config/todo/config.toml` and stores notes under `~/TODO/notes/`.
 
-* Bash (`~/.bashrc`): `source /path/to/repo/completion/_todo_completion.bash`
-* Zsh (`~/.zshrc`): `source /path/to/repo/completion/_todo_completion.zsh`
+## Usage
 
-## Config File
+```bash
+todo                             # open today's note (create if missing)
+todo today                       # same as above
+todo today --no-carry            # skip carry-over of unfinished tasks
+todo yesterday                   # open yesterday's note
+todo open 2026-03-05             # open a specific date's note
+todo catchup                     # rebuild Catch-up section in today's note
+todo catchup --since 2026-01-01  # limit scan start date (inclusive)
+todo catchup --dry-run           # preview what would be imported
+todo catchup --yes               # skip long-scan confirmation
+todo config                      # show current config values
+```
 
-Path:
+### Carry-over
 
-* `$XDG_CONFIG_HOME/todo/config.toml` (defaults to `~/.config/todo/config.toml`)
+When `todo` creates a new note, it looks for the latest previous note (by
+date, not strictly yesterday) and copies unchecked checkboxes (`- [ ] ...`)
+into a `## Carry-over from YYYY-MM-DD` section. Checked boxes are ignored.
 
-Example:
+Section context (`## ...` headings) is preserved. Tasks before any heading
+are grouped under `General`. When a carry-over section is carried again on a
+later day, the original section names are kept.
+
+Controlled by the `carry_over_mode` config key:
+
+* `auto` -- always copy (default).
+* `prompt` -- ask before copying.
+* `off` -- never copy.
+
+The `--no-carry` flag on `todo today` overrides any mode for that invocation.
+
+### Catch-up
+
+`todo catchup` scans all dated notes before today, tracks the latest checkbox
+state for each task, and imports only tasks whose latest state is unchecked.
+It writes a managed `## Catch-up` section (fenced by HTML comments) so
+rerunning is idempotent.
+
+`--dry-run` prints the grouped tasks and a summary (scanned files count,
+unresolved tasks count, date range) without changing today's note.
+
+If the scan would process many files (more than 500), `todo catchup` asks
+for confirmation. Use `--yes` to skip that prompt.
+
+## Config
+
+Location: `$XDG_CONFIG_HOME/todo/config.toml` (defaults to
+`~/.config/todo/config.toml`).
 
 ```toml
 notes_dir = "~/TODO/notes"
@@ -75,41 +78,37 @@ layout = "year_month"
 carry_over_mode = "auto"
 ```
 
-Fields:
+| Key                | Values                      | Effect                                         |
+|--------------------|-----------------------------|-------------------------------------------------|
+| `notes_dir`        | any path                    | Base folder for notes. Stored as absolute path. |
+| `layout`           | `year_month`, `flat`        | `year_month` stores notes in `YYYY/MM/`.        |
+| `carry_over_mode`  | `auto`, `prompt`, `off`     | See [Carry-over](#carry-over) above.            |
 
-* `notes_dir`
-  * Base folder for notes.
-  * `todo init` stores it as an absolute path, so later commands do not depend on the current working directory.
-* `layout`
-  * `year_month` or `flat`.
-  * `year_month` stores notes in `YYYY/MM/YYYY-MM-DD.md`.
-* `carry_over_mode`
-  * `auto`: always copy unfinished tasks from latest previous note.
-  * `prompt`: ask for confirmation before copying.
-  * `off`: never copy unfinished tasks.
+## Shell completion
 
-## Carry-over Rules
+Completion files live in `completion/` and are generated from Click:
 
-When `todo` creates today's note:
+```bash
+_TODO_COMPLETE=bash_source ./todo > completion/_todo_completion.bash
+_TODO_COMPLETE=zsh_source  ./todo > completion/_todo_completion.zsh
+```
 
-* It finds the latest previous note by date (not strictly yesterday).
-* It extracts markdown checkboxes with unchecked mark: `- [ ] ...`.
-* It ignores checked boxes: `- [x] ...` and `- [X] ...`.
-* It keeps section context from note headings (`## ...`) and carried subsections (`### ...`).
-* It preserves original section names when a carry-over section is carried again on a later day.
-* Tasks that appear before any section heading are grouped under a `General` section.
-* It writes a `## Carry-over from YYYY-MM-DD` section in today's note.
+Source the relevant file from your shell config:
+
+```bash
+# Bash (~/.bashrc)
+source /path/to/repo/completion/_todo_completion.bash
+
+# Zsh (~/.zshrc)
+source /path/to/repo/completion/_todo_completion.zsh
+```
 
 ## Development
 
-Install deps:
-
 ```bash
-uv sync --extra dev
+uv sync --extra dev   # install deps
+uv run pytest          # run tests
 ```
 
-Run tests:
-
-```bash
-uv run pytest
-```
+The repo-local `./todo` wrapper delegates to `uv run --project <repo-root>
+python -m todocli`, so it works from any directory.

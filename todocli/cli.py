@@ -20,10 +20,16 @@ from .config import (
 from .notes import (
     collect_unchecked_tasks,
     find_latest_note_before,
+    list_dated_notes,
     note_path_for_date,
+    render_catchup_block,
     render_carry_over,
     render_note_header,
+    replace_catchup_block,
+    scan_catchup_tasks_from_notes,
 )
+
+CATCHUP_CONFIRM_THRESHOLD = 500
 
 
 def today_date() -> date:
@@ -86,6 +92,66 @@ def build_carry_over_section(config: Config, note_date: date) -> str:
     return render_carry_over(prior_note.note_date, grouped_tasks)
 
 
+def format_catchup_preview(grouped_tasks: dict[str, list[str]]) -> str:
+    lines = ["Would import:"]
+    for section, tasks in grouped_tasks.items():
+        lines.append(f"### {section}")
+        for task in tasks:
+            lines.append(f"- [ ] {task}")
+        lines.append("")
+
+    return "\n".join(lines).rstrip()
+
+
+def format_scan_range(start: date | None, end: date | None) -> str:
+    if start is None or end is None:
+        return "none"
+    return f"{start.isoformat()}..{end.isoformat()}"
+
+
+def print_catchup_summary(
+    *,
+    scanned_files_count: int,
+    unresolved_tasks_count: int,
+    scanned_start: date | None,
+    scanned_end: date | None,
+) -> None:
+    click.echo(f"Scanned files: {scanned_files_count}")
+    click.echo(f"Unresolved tasks: {unresolved_tasks_count}")
+    click.echo(f"Date range: {format_scan_range(scanned_start, scanned_end)}")
+
+
+def create_or_update_catchup_note(
+    config: Config,
+    note_date: date,
+    grouped_tasks: dict[str, list[str]],
+) -> Path:
+    note_path = note_path_for_date(config, note_date)
+    note_path.parent.mkdir(parents=True, exist_ok=True)
+
+    existed = note_path.exists()
+    original_content = (
+        note_path.read_text(encoding="utf-8")
+        if existed
+        else render_note_header(note_date) + "\n"
+    )
+    catchup_block = render_catchup_block(grouped_tasks) if grouped_tasks else None
+    updated_content = replace_catchup_block(original_content, catchup_block)
+
+    if not existed or updated_content != original_content:
+        note_path.write_text(updated_content, encoding="utf-8")
+
+    click.edit(filename=str(note_path))
+    if not existed:
+        action = "Created"
+    elif updated_content != original_content:
+        action = "Updated"
+    else:
+        action = "Opened"
+    click.echo(f"{action}: {note_path}")
+    return note_path
+
+
 @click.group(name="todo", cls=DefaultGroup, default="today", default_if_no_args=True)
 def main() -> None:
     """Create and open dated markdown work notes."""
@@ -103,12 +169,14 @@ def main() -> None:
     type=click.Choice(sorted(ALLOWED_LAYOUTS)),
     default=DEFAULT_LAYOUT,
     show_default=True,
+    help="Directory structure for note files.",
 )
 @click.option(
     "--carry-over-mode",
     type=click.Choice(sorted(ALLOWED_CARRY_OVER_MODES)),
     default=DEFAULT_CARRY_OVER_MODE,
     show_default=True,
+    help="How to handle unfinished tasks from the previous note.",
 )
 @click.option("--force", is_flag=True, help="Overwrite an existing config file.")
 def init(
@@ -186,6 +254,79 @@ def show_config() -> None:
     click.echo(f"notes_dir: {state.config.notes_dir}")
     click.echo(f"layout: {state.config.layout}")
     click.echo(f"carry_over_mode: {state.config.carry_over_mode}")
+
+
+@main.command()
+@click.option(
+    "--since",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    default=None,
+    help="Limit scan start date (inclusive).",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be imported without editing today's note.",
+)
+@click.option(
+    "--yes",
+    is_flag=True,
+    help=(
+        "Skip confirmation when scanning many files "
+        f"(more than {CATCHUP_CONFIRM_THRESHOLD})."
+    ),
+)
+def catchup(since: datetime | None, dry_run: bool, yes: bool) -> None:
+    """Recover unresolved tasks from historical notes into today's note."""
+    state = load_config_or_fail()
+    target_date = today_date()
+    since_date = since.date() if since is not None else None
+
+    notes = list_dated_notes(
+        state.config.notes_dir,
+        before=target_date,
+        since=since_date,
+    )
+    if len(notes) > CATCHUP_CONFIRM_THRESHOLD and not yes:
+        if not click.confirm(
+            (
+                f"About to scan {len(notes)} dated note file(s). "
+                "Continue?"
+            ),
+            default=False,
+        ):
+            click.echo("Cancelled.")
+            return
+
+    scan_result = scan_catchup_tasks_from_notes(notes)
+    unresolved_tasks_count = sum(len(tasks) for tasks in scan_result.grouped_tasks.values())
+
+    if dry_run:
+        click.echo(f"Target note: {note_path_for_date(state.config, target_date)}")
+        if scan_result.grouped_tasks:
+            click.echo(format_catchup_preview(scan_result.grouped_tasks))
+        else:
+            click.echo("Would import: nothing")
+
+        print_catchup_summary(
+            scanned_files_count=scan_result.scanned_files_count,
+            unresolved_tasks_count=unresolved_tasks_count,
+            scanned_start=scan_result.scanned_start,
+            scanned_end=scan_result.scanned_end,
+        )
+        return
+
+    create_or_update_catchup_note(
+        config=state.config,
+        note_date=target_date,
+        grouped_tasks=scan_result.grouped_tasks,
+    )
+    print_catchup_summary(
+        scanned_files_count=scan_result.scanned_files_count,
+        unresolved_tasks_count=unresolved_tasks_count,
+        scanned_start=scan_result.scanned_start,
+        scanned_end=scan_result.scanned_end,
+    )
 
 
 if __name__ == "__main__":
