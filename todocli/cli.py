@@ -164,6 +164,7 @@ def create_or_update_catchup_note(
 
 
 @click.group(name="todo", cls=DefaultGroup, default="today", default_if_no_args=True)
+@click.version_option(package_name="todo-daily-notes")
 def main() -> None:
     """Create and open dated markdown work notes."""
 

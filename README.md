@@ -35,13 +35,15 @@ todo catchup --since 2026-01-01  # limit scan start date (inclusive)
 todo catchup --dry-run           # preview what would be imported
 todo catchup --yes               # skip long-scan confirmation
 todo config                      # show current config values
+todo --version                   # print installed CLI version
 ```
 
 ### Carry-over
 
 When `todo` creates a new note, it looks for the latest previous note (by
-date, not strictly yesterday) and copies unchecked checkboxes (`- [ ] ...`)
-into a `## Carry-over from YYYY-MM-DD` section. Checked boxes are ignored.
+date, not strictly yesterday) and copies unchecked checkboxes (`- [ ] ...`
+or `[ ] ...`) into a `## Carry-over from YYYY-MM-DD` section. Checked boxes
+are ignored.
 
 Section context (`## ...` headings) is preserved. Tasks before any heading
 are grouped under `General`. When a carry-over section is carried again on a
