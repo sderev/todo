@@ -6,10 +6,10 @@ created, it can carry over unfinished checkbox tasks from the previous note.
 ## Install
 
 ```bash
-uv tool install --force git+https://github.com/sderev/todo
+uv tool install git+https://github.com/sderev/todo
 ```
 
-Requires Python 3.13+.
+Requires Python 3.11+.
 
 ## Quick start
 
@@ -20,7 +20,8 @@ todo                             # open today's note in $EDITOR
 
 On first run without `init`, `todo` creates a default config at
 `~/.config/todo/config.toml` (or `$XDG_CONFIG_HOME/todo/config.toml` if set)
-and stores notes under `~/TODO/notes/`.
+and stores notes under `~/TODO/notes/`. The location is fully configurable;
+see [Config](#config).
 
 ## Usage
 
@@ -91,29 +92,14 @@ carry_over_mode = "auto"
 
 ## Shell completion
 
-Completion files live in `completion/` and are generated from Click:
-
-```bash
-_TODO_COMPLETE=bash_source ./todo > completion/_todo_completion.bash
-_TODO_COMPLETE=zsh_source  ./todo > completion/_todo_completion.zsh
-```
-
-Source the relevant file from your shell config:
+Pre-built completion files for Bash and Zsh are included in the repository
+under `completion/`. Copy the file for your shell somewhere convenient, then
+source it from your shell config.
 
 ```bash
 # Bash (~/.bashrc)
-source /path/to/repo/completion/_todo_completion.bash
+source /path/to/completion/_todo_completion.bash
 
 # Zsh (~/.zshrc)
-source /path/to/repo/completion/_todo_completion.zsh
+source /path/to/completion/_todo_completion.zsh
 ```
-
-## Development
-
-```bash
-uv sync --extra dev   # install deps
-uv run pytest          # run tests
-```
-
-The repo-local `./todo` wrapper delegates to `uv run --project <repo-root>
-python -m todocli`, so it works from any directory.
