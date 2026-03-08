@@ -15,7 +15,7 @@ set -euo pipefail
 uvx ruff format --check --config pyproject.toml .
 uvx ruff check --config pyproject.toml .
 
-py_versions=(3.13 3.14)
+py_versions=(3.11 3.12 3.13 3.14)
 
 pytest_args=()
 if [ -n "${GATE_PYTEST_ARGS:-}" ]; then
