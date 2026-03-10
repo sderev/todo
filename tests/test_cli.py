@@ -110,8 +110,8 @@ def test_today_carries_from_latest_previous_note(
     content = today_note.read_text(encoding="utf-8")
 
     assert "## Carry-over from 2026-03-06" in content
-    assert "- [ ] Finish change plan" in content
-    assert "- [ ] Reply to NOC" in content
+    assert "* [ ] Finish change plan" in content
+    assert "* [ ] Reply to NOC" in content
     assert "Announce completion" not in content
     assert "stale task" not in content
     assert fake_editor == [today_note]
@@ -154,11 +154,11 @@ def test_today_carries_from_bare_checkbox_items(
     content = today_note.read_text(encoding="utf-8")
 
     assert "## Carry-over from 2026-03-05" in content
-    assert "- [ ] a" in content
-    assert "- [ ] b" in content
-    assert "- [ ] c" in content
-    assert "- [ ] d" in content
-    assert "- [ ] e" not in content
+    assert "* [ ] a" in content
+    assert "* [ ] b" in content
+    assert "* [ ] c" in content
+    assert "* [ ] d" in content
+    assert "* [ ] e" not in content
     assert fake_editor == [today_note]
 
 
@@ -286,7 +286,7 @@ def test_prompt_mode_carries_when_confirmed(
     today_note = note_path_for_date(config, date(2026, 3, 9))
     content = today_note.read_text(encoding="utf-8")
     assert "Carry-over" in content
-    assert "- [ ] Pending task" in content
+    assert "* [ ] Pending task" in content
     assert fake_editor == [today_note]
 
 
@@ -463,6 +463,7 @@ def test_config_command_shows_defaults_without_file(
     assert str(isolated_home["home"] / "TODO" / "notes") in result.output
     assert "layout: year_month" in result.output
     assert "carry_over_mode: auto" in result.output
+    assert "bullet_marker: *" in result.output
 
 
 def test_repo_wrapper_runs_without_traceback(tmp_path: Path) -> None:
@@ -575,7 +576,7 @@ def test_catchup_dry_run_prints_grouped_preview_without_creating_today_note(
     assert "Target note:" in result.output
     assert "Would import:" in result.output
     assert "### Tickets" in result.output
-    assert "- [ ] Reply to NOC" in result.output
+    assert "* [ ] Reply to NOC" in result.output
     assert "Update package index" not in result.output
     assert "Scanned files: 2" in result.output
     assert "Unresolved tasks: 1" in result.output
@@ -719,7 +720,7 @@ Manual note
     assert "stale task" not in content
     assert "Manual note" in content
     assert "### Tickets" in content
-    assert "- [ ] Reply to NOC" in content
+    assert "* [ ] Reply to NOC" in content
     assert "Update package index" not in content
     assert fake_editor == [today_note]
     assert "Updated:" in result.output

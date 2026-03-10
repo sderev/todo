@@ -8,8 +8,10 @@ APP_NAME = "todo"
 DEFAULT_NOTES_DIR = "~/TODO/notes"
 DEFAULT_LAYOUT = "year_month"
 DEFAULT_CARRY_OVER_MODE = "auto"
+DEFAULT_BULLET_MARKER = "*"
 ALLOWED_LAYOUTS = {"year_month", "flat"}
 ALLOWED_CARRY_OVER_MODES = {"auto", "prompt", "off"}
+ALLOWED_BULLET_MARKERS = {"*", "-"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,6 +19,7 @@ class Config:
     notes_dir: Path
     layout: str = DEFAULT_LAYOUT
     carry_over_mode: str = DEFAULT_CARRY_OVER_MODE
+    bullet_marker: str = DEFAULT_BULLET_MARKER
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +50,7 @@ def write_config(path: Path, config: Config) -> None:
         f"notes_dir = {json.dumps(config.notes_dir.as_posix())}\n"
         f"layout = {json.dumps(config.layout)}\n"
         f"carry_over_mode = {json.dumps(config.carry_over_mode)}\n"
+        f"bullet_marker = {json.dumps(config.bullet_marker)}\n"
     )
     path.write_text(content, encoding="utf-8")
 
@@ -79,6 +83,13 @@ def _validate_carry_over_mode(value: str) -> str:
     return value
 
 
+def _validate_bullet_marker(value: str) -> str:
+    if value not in ALLOWED_BULLET_MARKERS:
+        allowed = ", ".join(sorted(ALLOWED_BULLET_MARKERS))
+        raise ValueError(f"Invalid `bullet_marker` value: {value!r}. Expected one of: {allowed}.")
+    return value
+
+
 def load_config(create_if_missing: bool = True) -> ConfigState:
     path = config_path()
     if not path.exists():
@@ -98,6 +109,12 @@ def load_config(create_if_missing: bool = True) -> ConfigState:
     carry_over_mode = _validate_carry_over_mode(
         data.get("carry_over_mode", DEFAULT_CARRY_OVER_MODE)
     )
+    bullet_marker = _validate_bullet_marker(data.get("bullet_marker", DEFAULT_BULLET_MARKER))
 
-    config = Config(notes_dir=notes_dir, layout=layout, carry_over_mode=carry_over_mode)
+    config = Config(
+        notes_dir=notes_dir,
+        layout=layout,
+        carry_over_mode=carry_over_mode,
+        bullet_marker=bullet_marker,
+    )
     return ConfigState(config=config, path=path, created=False)

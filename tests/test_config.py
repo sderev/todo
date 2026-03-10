@@ -27,6 +27,7 @@ def test_load_config_without_create_returns_defaults(
     assert state.config.notes_dir == isolated_home["home"] / "TODO" / "notes"
     assert state.config.layout == "year_month"
     assert state.config.carry_over_mode == "auto"
+    assert state.config.bullet_marker == "*"
 
 
 def test_load_config_rejects_invalid_layout(
@@ -54,6 +55,21 @@ def test_load_config_rejects_invalid_carry_over_mode(
     )
 
     with pytest.raises(ValueError, match="Invalid `carry_over_mode` value"):
+        load_config()
+
+
+def test_load_config_rejects_invalid_bullet_marker(
+    isolated_home: dict[str, Path],
+) -> None:
+    cfg_path = config_path()
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg_path.write_text(
+        'notes_dir = "~/TODO/notes"\nlayout = "year_month"\ncarry_over_mode = "auto"\n'
+        'bullet_marker = "+"\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Invalid `bullet_marker` value"):
         load_config()
 
 

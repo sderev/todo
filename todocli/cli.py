@@ -6,8 +6,10 @@ import click
 from click_default_group import DefaultGroup
 
 from .config import (
+    ALLOWED_BULLET_MARKERS,
     ALLOWED_CARRY_OVER_MODES,
     ALLOWED_LAYOUTS,
+    DEFAULT_BULLET_MARKER,
     DEFAULT_CARRY_OVER_MODE,
     DEFAULT_LAYOUT,
     DEFAULT_NOTES_DIR,
@@ -102,15 +104,20 @@ def build_carry_over_section(config: Config, note_date: date) -> str:
         ):
             return ""
 
-    return render_carry_over(prior_note.note_date, grouped_tasks)
+    return render_carry_over(
+        prior_note.note_date,
+        grouped_tasks,
+        bullet_marker=config.bullet_marker,
+    )
 
 
-def format_catchup_preview(grouped_tasks: dict[str, list[str]]) -> str:
+def format_catchup_preview(grouped_tasks: dict[str, list[str]], *, bullet_marker: str) -> str:
     lines = ["Would import:"]
     for section, tasks in grouped_tasks.items():
         lines.append(f"### {section}")
+        lines.append("")
         for task in tasks:
-            lines.append(f"- [ ] {task}")
+            lines.append(f"{bullet_marker} [ ] {task}")
         lines.append("")
 
     return "\n".join(lines).rstrip()
@@ -146,7 +153,11 @@ def create_or_update_catchup_note(
     original_content = (
         note_path.read_text(encoding="utf-8") if existed else render_note_header(note_date) + "\n"
     )
-    catchup_block = render_catchup_block(grouped_tasks) if grouped_tasks else None
+    catchup_block = (
+        render_catchup_block(grouped_tasks, bullet_marker=config.bullet_marker)
+        if grouped_tasks
+        else None
+    )
     updated_content = replace_catchup_block(original_content, catchup_block)
 
     if not existed or updated_content != original_content:
@@ -190,11 +201,19 @@ def main() -> None:
     show_default=True,
     help="How to handle unfinished tasks from the previous note.",
 )
+@click.option(
+    "--bullet-marker",
+    type=click.Choice(sorted(ALLOWED_BULLET_MARKERS)),
+    default=DEFAULT_BULLET_MARKER,
+    show_default=True,
+    help="Bullet marker used for checkbox list items.",
+)
 @click.option("--force", is_flag=True, help="Overwrite an existing config file.")
 def init(
     notes_dir: Path | None,
     layout: str,
     carry_over_mode: str,
+    bullet_marker: str,
     force: bool,
 ) -> None:
     """Create `~/.config/todo/config.toml` (or `$XDG_CONFIG_HOME/todo/config.toml` if set)."""
@@ -212,6 +231,7 @@ def init(
         notes_dir=resolved_notes_dir,
         layout=layout,
         carry_over_mode=carry_over_mode,
+        bullet_marker=bullet_marker,
     )
     write_config(cfg_path, config)
 
@@ -266,6 +286,7 @@ def show_config() -> None:
     click.echo(f"{styled_label('notes_dir')}: {state.config.notes_dir}")
     click.echo(f"{styled_label('layout')}: {state.config.layout}")
     click.echo(f"{styled_label('carry_over_mode')}: {state.config.carry_over_mode}")
+    click.echo(f"{styled_label('bullet_marker')}: {state.config.bullet_marker}")
 
 
 @main.command()
@@ -312,7 +333,12 @@ def catchup(since: datetime | None, dry_run: bool, yes: bool) -> None:
             f"{styled_label('Target note')}: {note_path_for_date(state.config, target_date)}"
         )
         if scan_result.grouped_tasks:
-            click.echo(format_catchup_preview(scan_result.grouped_tasks))
+            click.echo(
+                format_catchup_preview(
+                    scan_result.grouped_tasks,
+                    bullet_marker=state.config.bullet_marker,
+                )
+            )
         else:
             click.echo(f"{styled_label('Would import')}: nothing")
 

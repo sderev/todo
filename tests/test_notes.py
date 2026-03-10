@@ -168,11 +168,12 @@ def test_render_carry_over_keeps_section_context() -> None:
             "Campus network": ["Check switch room B"],
             "Storage": ["Validate snapshots"],
         },
+        bullet_marker="*",
     )
 
     assert "## Carry-over from 2026-03-06" in rendered
     assert "### Campus network" in rendered
-    assert "- [ ] Check switch room B" in rendered
+    assert "* [ ] Check switch room B" in rendered
     assert "### Storage" in rendered
 
 
@@ -346,10 +347,13 @@ still here
 
     updated = replace_catchup_block(
         original,
-        render_catchup_block({"Ops": ["New task"], "Tickets": ["Reply to NOC"]}),
+        render_catchup_block(
+            {"Ops": ["New task"], "Tickets": ["Reply to NOC"]},
+            bullet_marker="*",
+        ),
     )
 
     assert updated.count("<!-- todo catchup start -->") == 1
     assert "Old task" not in updated
-    assert "- [ ] New task" in updated
+    assert "* [ ] New task" in updated
     assert "## Later\nstill here\n" in updated

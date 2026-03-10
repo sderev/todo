@@ -82,6 +82,7 @@ If `XDG_CONFIG_HOME` is set, `todo` uses
 notes_dir = "~/TODO/notes"
 layout = "year_month"
 carry_over_mode = "auto"
+bullet_marker = "*"
 ```
 
 | Key                | Values                      | Effect                                         |
@@ -89,6 +90,7 @@ carry_over_mode = "auto"
 | `notes_dir`        | any path                    | Base folder for notes. Stored as absolute path. |
 | `layout`           | `year_month`, `flat`        | `year_month` stores notes in `YYYY/MM/`.        |
 | `carry_over_mode`  | `auto`, `prompt`, `off`     | See [Carry-over](#carry-over) above.            |
+| `bullet_marker`    | `*`, `-`                    | List marker used for new checkbox items.        |
 
 ## Shell completion
 
