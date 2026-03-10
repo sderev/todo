@@ -197,23 +197,30 @@ def scan_catchup_tasks(
     return scan_catchup_tasks_from_notes(notes)
 
 
-def render_carry_over(previous_date: date, grouped_tasks: dict[str, list[str]]) -> str:
+def render_carry_over(
+    previous_date: date,
+    grouped_tasks: dict[str, list[str]],
+    *,
+    bullet_marker: str,
+) -> str:
     lines = [f"## Carry-over from {previous_date.isoformat()}", ""]
     for section, tasks in grouped_tasks.items():
         lines.append(f"### {section}")
+        lines.append("")
         for task in tasks:
-            lines.append(f"- [ ] {task}")
+            lines.append(f"{bullet_marker} [ ] {task}")
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
 
 
-def render_catchup_block(grouped_tasks: dict[str, list[str]]) -> str:
+def render_catchup_block(grouped_tasks: dict[str, list[str]], *, bullet_marker: str) -> str:
     lines = [CATCHUP_START_MARKER, "## Catch-up", ""]
     for section, tasks in grouped_tasks.items():
         lines.append(f"### {section}")
+        lines.append("")
         for task in tasks:
-            lines.append(f"- [ ] {task}")
+            lines.append(f"{bullet_marker} [ ] {task}")
         lines.append("")
     lines.append(CATCHUP_END_MARKER)
     return "\n".join(lines).rstrip() + "\n"
