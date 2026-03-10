@@ -203,7 +203,7 @@ def main() -> None:
 )
 @click.option(
     "--bullet-marker",
-    type=click.Choice(sorted(ALLOWED_BULLET_MARKERS)),
+    type=click.Choice(ALLOWED_BULLET_MARKERS),
     default=DEFAULT_BULLET_MARKER,
     show_default=True,
     help="Bullet marker used for checkbox list items.",

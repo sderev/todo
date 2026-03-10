@@ -40,13 +40,21 @@ def fake_editor(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
     return opened
 
 
-def write_config(path: Path, *, notes_dir: Path, layout: str, carry_over_mode: str) -> None:
+def write_config(
+    path: Path,
+    *,
+    notes_dir: Path,
+    layout: str,
+    carry_over_mode: str,
+    bullet_marker: str = "*",
+) -> None:
     write_app_config(
         path,
         Config(
             notes_dir=notes_dir,
             layout=layout,
             carry_over_mode=carry_over_mode,
+            bullet_marker=bullet_marker,
         ),
     )
 
@@ -789,3 +797,222 @@ Manual note
     assert "Manual note" in content
     assert fake_editor == [today_note]
     assert "Unresolved tasks: 0" in result.output
+
+
+# ---------------------------------------------------------------------------
+# bullet_marker tests
+# ---------------------------------------------------------------------------
+
+
+def test_config_command_shows_configured_dash_bullet_marker(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(
+        cfg_path,
+        notes_dir=notes_dir,
+        layout="year_month",
+        carry_over_mode="auto",
+        bullet_marker="-",
+    )
+
+    result = runner.invoke(cli.main, ["config"])
+
+    assert result.exit_code == 0
+    assert "bullet_marker: -" in result.output
+
+
+def test_init_writes_dash_bullet_marker(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 9))
+
+    init_result = runner.invoke(cli.main, ["init", "--bullet-marker", "-"])
+
+    assert init_result.exit_code == 0
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    assert 'bullet_marker = "-"' in cfg_path.read_text(encoding="utf-8")
+
+    config_result = runner.invoke(cli.main, ["config"])
+    assert "bullet_marker: -" in config_result.output
+
+
+def test_init_rejects_invalid_bullet_marker_choice(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+) -> None:
+    result = runner.invoke(cli.main, ["init", "--bullet-marker", "+"])
+
+    assert result.exit_code != 0
+    assert "Invalid value for '--bullet-marker'" in result.output
+
+
+def test_today_carries_from_latest_previous_note_with_dash_bullet_marker(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(
+        cfg_path,
+        notes_dir=notes_dir,
+        layout="year_month",
+        carry_over_mode="auto",
+        bullet_marker="-",
+    )
+
+    config = Config(
+        notes_dir=notes_dir, layout="year_month", carry_over_mode="auto", bullet_marker="-"
+    )
+    friday_note = note_path_for_date(config, date(2026, 3, 6))
+    friday_note.parent.mkdir(parents=True, exist_ok=True)
+    friday_note.write_text(
+        """# 2026-03-06
+
+## Tickets
+- [ ] Reply to NOC
+- [X] Closed task
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 9))
+
+    result = runner.invoke(cli.main, ["today"])
+
+    assert result.exit_code == 0
+    today_note = note_path_for_date(config, date(2026, 3, 9))
+    content = today_note.read_text(encoding="utf-8")
+    assert "- [ ] Reply to NOC" in content
+    assert "Closed task" not in content
+    assert fake_editor == [today_note]
+
+
+def test_prompt_mode_carries_when_confirmed_with_dash_bullet_marker(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(
+        cfg_path,
+        notes_dir=notes_dir,
+        layout="year_month",
+        carry_over_mode="prompt",
+        bullet_marker="-",
+    )
+
+    config = Config(
+        notes_dir=notes_dir, layout="year_month", carry_over_mode="prompt", bullet_marker="-"
+    )
+    friday_note = note_path_for_date(config, date(2026, 3, 6))
+    friday_note.parent.mkdir(parents=True, exist_ok=True)
+    friday_note.write_text("# 2026-03-06\n\n## Ops\n- [ ] Pending task\n", encoding="utf-8")
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 9))
+    monkeypatch.setattr(cli.click, "confirm", lambda *args, **kwargs: True)
+
+    result = runner.invoke(cli.main, ["today"])
+
+    assert result.exit_code == 0
+    today_note = note_path_for_date(config, date(2026, 3, 9))
+    content = today_note.read_text(encoding="utf-8")
+    assert "Carry-over" in content
+    assert "- [ ] Pending task" in content
+    assert fake_editor == [today_note]
+
+
+def test_catchup_dry_run_uses_dash_bullet_marker(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(
+        cfg_path,
+        notes_dir=notes_dir,
+        layout="year_month",
+        carry_over_mode="auto",
+        bullet_marker="-",
+    )
+
+    config = Config(
+        notes_dir=notes_dir, layout="year_month", carry_over_mode="auto", bullet_marker="-"
+    )
+    march_6 = note_path_for_date(config, date(2026, 3, 6))
+    march_6.parent.mkdir(parents=True, exist_ok=True)
+    march_6.write_text(
+        """# 2026-03-06
+
+## Tickets
+- [ ] Reply to NOC
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 9))
+
+    result = runner.invoke(cli.main, ["catchup", "--since", "2026-03-06", "--dry-run"])
+
+    assert result.exit_code == 0
+    today_note = note_path_for_date(config, date(2026, 3, 9))
+    assert not today_note.exists()
+    assert "- [ ] Reply to NOC" in result.output
+    assert fake_editor == []
+
+
+def test_catchup_upserts_managed_section_with_dash_bullet_marker(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(
+        cfg_path,
+        notes_dir=notes_dir,
+        layout="year_month",
+        carry_over_mode="auto",
+        bullet_marker="-",
+    )
+
+    config = Config(
+        notes_dir=notes_dir, layout="year_month", carry_over_mode="auto", bullet_marker="-"
+    )
+    march_6 = note_path_for_date(config, date(2026, 3, 6))
+    march_6.parent.mkdir(parents=True, exist_ok=True)
+    march_6.write_text(
+        """# 2026-03-06
+
+## Tickets
+- [ ] Reply to NOC
+""",
+        encoding="utf-8",
+    )
+
+    today_note = note_path_for_date(config, date(2026, 3, 9))
+    today_note.parent.mkdir(parents=True, exist_ok=True)
+    today_note.write_text("# 2026-03-09\n\nManual note\n", encoding="utf-8")
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 9))
+
+    result = runner.invoke(cli.main, ["catchup", "--since", "2026-03-06"])
+
+    assert result.exit_code == 0
+    content = today_note.read_text(encoding="utf-8")
+    assert "- [ ] Reply to NOC" in content
+    assert "* [ ] Reply to NOC" not in content
+    assert "Manual note" in content
+    assert fake_editor == [today_note]

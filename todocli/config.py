@@ -11,7 +11,7 @@ DEFAULT_CARRY_OVER_MODE = "auto"
 DEFAULT_BULLET_MARKER = "*"
 ALLOWED_LAYOUTS = {"year_month", "flat"}
 ALLOWED_CARRY_OVER_MODES = {"auto", "prompt", "off"}
-ALLOWED_BULLET_MARKERS = {"*", "-"}
+ALLOWED_BULLET_MARKERS: tuple[str, ...] = ("*", "-")
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,7 +85,7 @@ def _validate_carry_over_mode(value: str) -> str:
 
 def _validate_bullet_marker(value: str) -> str:
     if value not in ALLOWED_BULLET_MARKERS:
-        allowed = ", ".join(sorted(ALLOWED_BULLET_MARKERS))
+        allowed = ", ".join(ALLOWED_BULLET_MARKERS)
         raise ValueError(f"Invalid `bullet_marker` value: {value!r}. Expected one of: {allowed}.")
     return value
 
