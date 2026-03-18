@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-0.2.1'></a>
+## 0.2.1 - 2026-03-18
+
+Fixed
+-----
+* Made `todo review` default to the weekly review command instead of requiring `todo review week`.
+
 <a id='changelog-0.2.0'></a>
 ## 0.2.0 - 2026-03-18
 

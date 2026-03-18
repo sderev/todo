@@ -31,6 +31,7 @@ todo today                       # same as above
 todo today --no-carry            # skip carry-over of unfinished tasks
 todo yesterday                   # open yesterday's note
 todo open 2026-03-05             # open a specific date's note
+todo review                      # same as `todo review week`
 todo review week                 # print the current ISO week's review
 todo review week --week 2026-W11 # print a specific ISO week
 todo review week --date 2026-03-11
@@ -79,9 +80,10 @@ for confirmation. Use `--yes` to skip that prompt.
 
 ### Weekly Review
 
-`todo review week` builds a markdown report for an ISO week from your dated
-notes. By default it uses the current ISO week and caps the scan at today, so
-future notes in the same week are ignored.
+`todo review` builds a markdown report for an ISO week from your dated notes.
+`todo review week` remains available as the explicit form. By default the
+command uses the current ISO week and caps the scan at today, so future notes
+in the same week are ignored.
 
 Use `--week YYYY-Www` to target an explicit full ISO week, or `--date YYYY-MM-DD`
 to anchor the review and stop at that day within its ISO week. The two flags

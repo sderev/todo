@@ -390,7 +390,7 @@ def show_config() -> None:
     click.echo(f"{styled_label('bullet_marker')}: {state.config.bullet_marker}")
 
 
-@main.group()
+@main.group(cls=DefaultGroup, default="week", default_if_no_args=True)
 def review() -> None:
     """Review note history over broader time windows."""
 

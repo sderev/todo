@@ -1065,6 +1065,53 @@ def test_review_week_defaults_to_current_iso_week_stdout(
     assert fake_editor == []
 
 
+def test_review_defaults_to_week_subcommand(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(cfg_path, notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+    monday = note_path_for_date(config, date(2026, 3, 9))
+    monday.parent.mkdir(parents=True, exist_ok=True)
+    monday.write_text(
+        """# 2026-03-09
+
+## Ops
+- [ ] Deploy v2
+- [ ] Fix alerts
+""",
+        encoding="utf-8",
+    )
+
+    wednesday = note_path_for_date(config, date(2026, 3, 11))
+    wednesday.parent.mkdir(parents=True, exist_ok=True)
+    wednesday.write_text(
+        """# 2026-03-11
+
+## Ops
+- [x] Deploy v2
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 15))
+
+    result = runner.invoke(cli.main, ["review"])
+
+    assert result.exit_code == 0
+    assert "# Weekly review for 2026-W11" in result.output
+    assert "## Marked done this week" in result.output
+    assert "* [x] Deploy v2" in result.output
+    assert "## Open at end of week" in result.output
+    assert "* [ ] Fix alerts" in result.output
+    assert fake_editor == []
+
+
 def test_review_week_date_anchor_excludes_future_notes(
     runner: CliRunner,
     isolated_home: dict[str, Path],
