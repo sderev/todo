@@ -4,7 +4,10 @@ from pathlib import Path
 from todocli.config import Config
 from todocli.notes import (
     collect_unchecked_tasks,
+    compute_weekly_review,
     find_latest_note_before,
+    iso_week_range,
+    iso_week_range_from_week,
     list_dated_notes,
     note_path_for_date,
     parse_note_date,
@@ -357,3 +360,296 @@ still here
     assert "Old task" not in updated
     assert "* [ ] New task" in updated
     assert "## Later\nstill here\n" in updated
+
+
+# --- Weekly review ---
+
+
+# ISO week range calculation
+
+
+def test_iso_week_range_midweek_anchor() -> None:
+    # 2026-03-11 is a Wednesday in ISO week 2026-W11
+    week = iso_week_range(date(2026, 3, 11))
+
+    assert week.monday == date(2026, 3, 9)
+    assert week.sunday == date(2026, 3, 15)
+    assert week.cutoff == date(2026, 3, 11)
+
+
+def test_iso_week_range_monday_anchor() -> None:
+    week = iso_week_range(date(2026, 3, 9))
+
+    assert week.monday == date(2026, 3, 9)
+    assert week.sunday == date(2026, 3, 15)
+    assert week.cutoff == date(2026, 3, 9)
+
+
+def test_iso_week_range_sunday_anchor() -> None:
+    week = iso_week_range(date(2026, 3, 15))
+
+    assert week.monday == date(2026, 3, 9)
+    assert week.sunday == date(2026, 3, 15)
+    assert week.cutoff == date(2026, 3, 15)
+
+
+def test_iso_week_range_from_week_number() -> None:
+    week = iso_week_range_from_week(2026, 11)
+
+    assert week.monday == date(2026, 3, 9)
+    assert week.sunday == date(2026, 3, 15)
+    assert week.cutoff == date(2026, 3, 15)
+
+
+# Completed vs open classification
+
+
+def test_weekly_review_classifies_done_and_open(tmp_path: Path) -> None:
+    notes_dir = tmp_path / "notes"
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    # Monday: open two tasks
+    mon = note_path_for_date(config, date(2026, 3, 9))
+    mon.parent.mkdir(parents=True, exist_ok=True)
+    mon.write_text(
+        "# 2026-03-09\n\n## Ops\n- [ ] Deploy v2\n- [ ] Fix alerts\n",
+        encoding="utf-8",
+    )
+
+    # Wednesday: complete one
+    wed = note_path_for_date(config, date(2026, 3, 11))
+    wed.parent.mkdir(parents=True, exist_ok=True)
+    wed.write_text(
+        "# 2026-03-11\n\n## Ops\n- [x] Deploy v2\n",
+        encoding="utf-8",
+    )
+
+    week = iso_week_range_from_week(2026, 11)
+    result = compute_weekly_review(notes_dir, week)
+
+    assert result.done == {"Ops": ["Deploy v2"]}
+    assert result.open == {"Ops": ["Fix alerts"]}
+    assert result.scanned_files_count == 2
+
+
+# Current partial week cutoff
+
+
+def test_weekly_review_partial_week_excludes_future_notes(tmp_path: Path) -> None:
+    notes_dir = tmp_path / "notes"
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    # Monday: open task
+    mon = note_path_for_date(config, date(2026, 3, 9))
+    mon.parent.mkdir(parents=True, exist_ok=True)
+    mon.write_text(
+        "# 2026-03-09\n\n## Ops\n- [ ] Deploy v2\n",
+        encoding="utf-8",
+    )
+
+    # Friday: complete it
+    fri = note_path_for_date(config, date(2026, 3, 13))
+    fri.parent.mkdir(parents=True, exist_ok=True)
+    fri.write_text(
+        "# 2026-03-13\n\n## Ops\n- [x] Deploy v2\n",
+        encoding="utf-8",
+    )
+
+    # Anchor is Wednesday → cutoff before Friday → should not see Friday's note
+    week = iso_week_range(date(2026, 3, 11))
+    result = compute_weekly_review(notes_dir, week)
+
+    assert result.done == {}
+    assert result.open == {"Ops": ["Deploy v2"]}
+    assert result.scanned_files_count == 1  # only Monday's note
+
+
+# Tasks completed during week but reopened by cutoff
+
+
+def test_weekly_review_completed_then_reopened_not_in_done(tmp_path: Path) -> None:
+    notes_dir = tmp_path / "notes"
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    # Monday: complete a task
+    mon = note_path_for_date(config, date(2026, 3, 9))
+    mon.parent.mkdir(parents=True, exist_ok=True)
+    mon.write_text(
+        "# 2026-03-09\n\n## Ops\n- [x] Deploy v2\n",
+        encoding="utf-8",
+    )
+
+    # Wednesday: reopen the same task
+    wed = note_path_for_date(config, date(2026, 3, 11))
+    wed.parent.mkdir(parents=True, exist_ok=True)
+    wed.write_text(
+        "# 2026-03-11\n\n## Ops\n- [ ] Deploy v2\n",
+        encoding="utf-8",
+    )
+
+    week = iso_week_range_from_week(2026, 11)
+    result = compute_weekly_review(notes_dir, week)
+
+    assert result.done == {}
+    assert result.open == {"Ops": ["Deploy v2"]}
+
+
+# Tasks completed before the week and unchanged
+
+
+def test_weekly_review_pre_week_completed_excluded_from_done(tmp_path: Path) -> None:
+    notes_dir = tmp_path / "notes"
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    # Previous week: complete a task
+    prev = note_path_for_date(config, date(2026, 3, 5))
+    prev.parent.mkdir(parents=True, exist_ok=True)
+    prev.write_text(
+        "# 2026-03-05\n\n## Ops\n- [x] Deploy v1\n",
+        encoding="utf-8",
+    )
+
+    # This week: a different task
+    mon = note_path_for_date(config, date(2026, 3, 9))
+    mon.parent.mkdir(parents=True, exist_ok=True)
+    mon.write_text(
+        "# 2026-03-09\n\n## Ops\n- [ ] Deploy v2\n",
+        encoding="utf-8",
+    )
+
+    week = iso_week_range_from_week(2026, 11)
+    result = compute_weekly_review(notes_dir, week)
+
+    assert "Deploy v1" not in result.done.get("Ops", [])
+    assert result.open == {"Ops": ["Deploy v2"]}
+
+
+# Empty input / no dated notes
+
+
+def test_weekly_review_empty_notes_dir(tmp_path: Path) -> None:
+    notes_dir = tmp_path / "notes"
+    notes_dir.mkdir()
+
+    week = iso_week_range_from_week(2026, 11)
+    result = compute_weekly_review(notes_dir, week)
+
+    assert result.done == {}
+    assert result.open == {}
+    assert result.scanned_files_count == 0
+
+
+def test_weekly_review_nonexistent_notes_dir(tmp_path: Path) -> None:
+    notes_dir = tmp_path / "does_not_exist"
+
+    week = iso_week_range_from_week(2026, 11)
+    result = compute_weekly_review(notes_dir, week)
+
+    assert result.done == {}
+    assert result.open == {}
+    assert result.scanned_files_count == 0
+
+
+# Duplicate text behavior
+
+
+def test_weekly_review_duplicate_task_body_uses_latest_state(tmp_path: Path) -> None:
+    """Same body appearing in multiple notes: latest state wins."""
+    notes_dir = tmp_path / "notes"
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    # Monday: open
+    mon = note_path_for_date(config, date(2026, 3, 9))
+    mon.parent.mkdir(parents=True, exist_ok=True)
+    mon.write_text(
+        "# 2026-03-09\n\n## Ops\n- [ ] Deploy v2\n- [ ] Deploy v2\n",
+        encoding="utf-8",
+    )
+
+    # Tuesday: complete
+    tue = note_path_for_date(config, date(2026, 3, 10))
+    tue.parent.mkdir(parents=True, exist_ok=True)
+    tue.write_text(
+        "# 2026-03-10\n\n## Ops\n- [x] Deploy v2\n",
+        encoding="utf-8",
+    )
+
+    week = iso_week_range_from_week(2026, 11)
+    result = compute_weekly_review(notes_dir, week)
+
+    # Task appears only once despite duplicates in source
+    assert result.done == {"Ops": ["Deploy v2"]}
+    assert result.open == {}
+
+
+# Additional edge cases
+
+
+def test_weekly_review_task_section_uses_latest_note_section(tmp_path: Path) -> None:
+    """When a task moves sections across notes, the latest section wins."""
+    notes_dir = tmp_path / "notes"
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    mon = note_path_for_date(config, date(2026, 3, 9))
+    mon.parent.mkdir(parents=True, exist_ok=True)
+    mon.write_text(
+        "# 2026-03-09\n\n## Ops\n- [ ] Deploy v2\n",
+        encoding="utf-8",
+    )
+
+    wed = note_path_for_date(config, date(2026, 3, 11))
+    wed.parent.mkdir(parents=True, exist_ok=True)
+    wed.write_text(
+        "# 2026-03-11\n\n## Tickets\n- [x] Deploy v2\n",
+        encoding="utf-8",
+    )
+
+    week = iso_week_range_from_week(2026, 11)
+    result = compute_weekly_review(notes_dir, week)
+
+    # Task classified under its latest section
+    assert result.done == {"Tickets": ["Deploy v2"]}
+    assert "Ops" not in result.done
+
+
+def test_weekly_review_includes_pre_week_open_tasks(tmp_path: Path) -> None:
+    """Tasks opened before the week that remain unchecked appear in open."""
+    notes_dir = tmp_path / "notes"
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    prev = note_path_for_date(config, date(2026, 3, 5))
+    prev.parent.mkdir(parents=True, exist_ok=True)
+    prev.write_text(
+        "# 2026-03-05\n\n## Ops\n- [ ] Old task\n",
+        encoding="utf-8",
+    )
+
+    week = iso_week_range_from_week(2026, 11)
+    result = compute_weekly_review(notes_dir, week)
+
+    assert result.open == {"Ops": ["Old task"]}
+    assert result.done == {}
+
+
+def test_weekly_review_carry_over_sections_parsed(tmp_path: Path) -> None:
+    """Tasks inside carry-over sections are tracked correctly."""
+    notes_dir = tmp_path / "notes"
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    mon = note_path_for_date(config, date(2026, 3, 9))
+    mon.parent.mkdir(parents=True, exist_ok=True)
+    mon.write_text(
+        "# 2026-03-09\n\n"
+        "## Carry-over from 2026-03-06\n\n"
+        "### Storage\n"
+        "- [ ] Validate snapshots\n\n"
+        "## Ops\n"
+        "- [x] Deploy v2\n",
+        encoding="utf-8",
+    )
+
+    week = iso_week_range_from_week(2026, 11)
+    result = compute_weekly_review(notes_dir, week)
+
+    assert result.done == {"Ops": ["Deploy v2"]}
+    assert result.open == {"Storage": ["Validate snapshots"]}

@@ -1016,3 +1016,332 @@ def test_catchup_upserts_managed_section_with_dash_bullet_marker(
     assert "* [ ] Reply to NOC" not in content
     assert "Manual note" in content
     assert fake_editor == [today_note]
+
+
+def test_review_week_defaults_to_current_iso_week_stdout(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(cfg_path, notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+    monday = note_path_for_date(config, date(2026, 3, 9))
+    monday.parent.mkdir(parents=True, exist_ok=True)
+    monday.write_text(
+        """# 2026-03-09
+
+## Ops
+- [ ] Deploy v2
+- [ ] Fix alerts
+""",
+        encoding="utf-8",
+    )
+
+    wednesday = note_path_for_date(config, date(2026, 3, 11))
+    wednesday.parent.mkdir(parents=True, exist_ok=True)
+    wednesday.write_text(
+        """# 2026-03-11
+
+## Ops
+- [x] Deploy v2
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 15))
+
+    result = runner.invoke(cli.main, ["review", "week"])
+
+    assert result.exit_code == 0
+    assert "# Weekly review for 2026-W11" in result.output
+    assert "## Marked done this week" in result.output
+    assert "* [x] Deploy v2" in result.output
+    assert "## Open at end of week" in result.output
+    assert "* [ ] Fix alerts" in result.output
+    assert fake_editor == []
+
+
+def test_review_week_date_anchor_excludes_future_notes(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(cfg_path, notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+    monday = note_path_for_date(config, date(2026, 3, 9))
+    monday.parent.mkdir(parents=True, exist_ok=True)
+    monday.write_text(
+        """# 2026-03-09
+
+## Ops
+- [ ] Deploy v2
+""",
+        encoding="utf-8",
+    )
+
+    friday = note_path_for_date(config, date(2026, 3, 13))
+    friday.parent.mkdir(parents=True, exist_ok=True)
+    friday.write_text(
+        """# 2026-03-13
+
+## Ops
+- [x] Deploy v2
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(cli, "today_date", lambda: date(2026, 3, 17))
+
+    result = runner.invoke(cli.main, ["review", "week", "--date", "2026-03-11"])
+
+    assert result.exit_code == 0
+    assert "Cutoff: 2026-03-11" in result.output
+    assert "* [x] Deploy v2" not in result.output
+    assert "* [ ] Deploy v2" in result.output
+    assert fake_editor == []
+
+
+def test_review_week_supports_explicit_iso_week(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(cfg_path, notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    config = Config(notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+    monday = note_path_for_date(config, date(2026, 3, 9))
+    monday.parent.mkdir(parents=True, exist_ok=True)
+    monday.write_text(
+        """# 2026-03-09
+
+## Ops
+- [ ] Deploy v2
+""",
+        encoding="utf-8",
+    )
+
+    thursday = note_path_for_date(config, date(2026, 3, 12))
+    thursday.parent.mkdir(parents=True, exist_ok=True)
+    thursday.write_text(
+        """# 2026-03-12
+
+## Ops
+- [x] Deploy v2
+""",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(cli.main, ["review", "week", "--week", "2026-W11"])
+
+    assert result.exit_code == 0
+    assert "# Weekly review for 2026-W11" in result.output
+    assert "* [x] Deploy v2" in result.output
+    assert fake_editor == []
+
+
+def test_review_week_rejects_week_and_date_together(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(cfg_path, notes_dir=notes_dir, layout="year_month", carry_over_mode="auto")
+
+    result = runner.invoke(
+        cli.main,
+        ["review", "week", "--week", "2026-W11", "--date", "2026-03-11"],
+    )
+
+    assert result.exit_code != 0
+    assert "Use either `--week` or `--date`, not both." in result.output
+
+
+def test_review_week_output_writes_file_without_opening_editor(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(
+        cfg_path,
+        notes_dir=notes_dir,
+        layout="year_month",
+        carry_over_mode="auto",
+        bullet_marker="-",
+    )
+
+    config = Config(
+        notes_dir=notes_dir, layout="year_month", carry_over_mode="auto", bullet_marker="-"
+    )
+    monday = note_path_for_date(config, date(2026, 3, 9))
+    monday.parent.mkdir(parents=True, exist_ok=True)
+    monday.write_text(
+        """# 2026-03-09
+
+## Ops
+- [ ] Deploy v2
+""",
+        encoding="utf-8",
+    )
+
+    thursday = note_path_for_date(config, date(2026, 3, 12))
+    thursday.parent.mkdir(parents=True, exist_ok=True)
+    thursday.write_text(
+        """# 2026-03-12
+
+## Ops
+- [x] Deploy v2
+""",
+        encoding="utf-8",
+    )
+
+    output_path = isolated_home["home"] / "reports" / "2026-W11.md"
+    result = runner.invoke(
+        cli.main, ["review", "week", "--week", "2026-W11", "--output", str(output_path)]
+    )
+
+    assert result.exit_code == 0
+    assert output_path.exists()
+    content = output_path.read_text(encoding="utf-8")
+    assert "# Weekly review for 2026-W11" in content
+    assert "- [x] Deploy v2" in content
+    assert "Written:" in result.output
+    assert fake_editor == []
+
+
+@pytest.mark.parametrize(
+    ("output_relative_path", "existing_content"),
+    [
+        (
+            Path("2026/03/2026-03-08.md"),
+            "# 2026-03-08\n\n## Archived\n- [ ] Keep me\n",
+        ),
+        (Path("reports/2026-03-12.md"), None),
+    ],
+)
+def test_review_week_output_rejects_dated_note_paths_inside_notes_dir(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+    output_relative_path: Path,
+    existing_content: str | None,
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(
+        cfg_path,
+        notes_dir=notes_dir,
+        layout="year_month",
+        carry_over_mode="auto",
+        bullet_marker="-",
+    )
+
+    config = Config(
+        notes_dir=notes_dir, layout="year_month", carry_over_mode="auto", bullet_marker="-"
+    )
+    monday = note_path_for_date(config, date(2026, 3, 9))
+    monday.parent.mkdir(parents=True, exist_ok=True)
+    monday.write_text(
+        """# 2026-03-09
+
+## Ops
+- [ ] Deploy v2
+""",
+        encoding="utf-8",
+    )
+
+    thursday = note_path_for_date(config, date(2026, 3, 12))
+    thursday.parent.mkdir(parents=True, exist_ok=True)
+    thursday.write_text(
+        """# 2026-03-12
+
+## Ops
+- [x] Deploy v2
+""",
+        encoding="utf-8",
+    )
+
+    output_path = notes_dir / output_relative_path
+    if existing_content is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(existing_content, encoding="utf-8")
+
+    result = runner.invoke(
+        cli.main, ["review", "week", "--week", "2026-W11", "--output", str(output_path)]
+    )
+
+    assert result.exit_code != 0
+    assert "dated markdown path inside `notes_dir`" in result.output
+    if existing_content is None:
+        assert not output_path.exists()
+    else:
+        assert output_path.read_text(encoding="utf-8") == existing_content
+    assert fake_editor == []
+
+
+def test_review_week_output_rejects_dated_symlink_inside_notes_dir(
+    runner: CliRunner,
+    isolated_home: dict[str, Path],
+    fake_editor: list[Path],
+) -> None:
+    notes_dir = isolated_home["home"] / "notes"
+    cfg_path = isolated_home["xdg"] / "todo" / "config.toml"
+    write_config(
+        cfg_path,
+        notes_dir=notes_dir,
+        layout="year_month",
+        carry_over_mode="auto",
+        bullet_marker="-",
+    )
+
+    config = Config(
+        notes_dir=notes_dir, layout="year_month", carry_over_mode="auto", bullet_marker="-"
+    )
+    monday = note_path_for_date(config, date(2026, 3, 9))
+    monday.parent.mkdir(parents=True, exist_ok=True)
+    monday.write_text(
+        """# 2026-03-09
+
+## Ops
+- [ ] Deploy v2
+""",
+        encoding="utf-8",
+    )
+
+    thursday = note_path_for_date(config, date(2026, 3, 12))
+    thursday.parent.mkdir(parents=True, exist_ok=True)
+    thursday.write_text(
+        """# 2026-03-12
+
+## Ops
+- [x] Deploy v2
+""",
+        encoding="utf-8",
+    )
+
+    symlink_target = isolated_home["home"] / "report.md"
+    symlink_target.write_text("outside\n", encoding="utf-8")
+    output_path = notes_dir / "reports" / "2026-03-18.md"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.symlink_to(symlink_target)
+
+    result = runner.invoke(
+        cli.main, ["review", "week", "--week", "2026-W11", "--output", str(output_path)]
+    )
+
+    assert result.exit_code != 0
+    assert "dated markdown path inside `notes_dir`" in result.output
+    assert output_path.is_symlink()
+    assert output_path.resolve().read_text(encoding="utf-8") == "outside\n"
+    assert fake_editor == []

@@ -31,6 +31,12 @@ todo today                       # same as above
 todo today --no-carry            # skip carry-over of unfinished tasks
 todo yesterday                   # open yesterday's note
 todo open 2026-03-05             # open a specific date's note
+todo review week                 # print the current ISO week's review
+todo review week --week 2026-W11 # print a specific ISO week
+todo review week --date 2026-03-11
+                                 # review that ISO week up to this day
+todo review week --output weekly/2026-W11.md
+                                 # write the report to a file
 todo catchup                     # rebuild Catch-up section in today's note
 todo catchup --since 2026-01-01  # limit scan start date (inclusive)
 todo catchup --dry-run           # preview what would be imported
@@ -70,6 +76,28 @@ unresolved tasks count, date range) without changing today's note.
 
 If the scan would process many files (more than 500), `todo catchup` asks
 for confirmation. Use `--yes` to skip that prompt.
+
+### Weekly Review
+
+`todo review week` builds a markdown report for an ISO week from your dated
+notes. By default it uses the current ISO week and caps the scan at today, so
+future notes in the same week are ignored.
+
+Use `--week YYYY-Www` to target an explicit full ISO week, or `--date YYYY-MM-DD`
+to anchor the review and stop at that day within its ISO week. The two flags
+are mutually exclusive.
+
+The report includes:
+
+* `Marked done this week` -- tasks with a checked occurrence during the week
+  whose latest state by the report cutoff is checked.
+* `Open at end of week` -- tasks whose latest state by the report cutoff is
+  unchecked.
+
+By default the report is printed to stdout. Use `--output PATH` to write the
+markdown report to a file without opening an editor. `--output` rejects
+date-stamped markdown paths inside `notes_dir` so reports cannot overwrite
+notes or be re-ingested by later scans.
 
 ## Config
 

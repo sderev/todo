@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-0.2.0'></a>
+## 0.2.0 - 2026-03-18
+
+Added
+-----
+* Add `todo review week` to build a weekly markdown report from dated notes.
+
 <a id='changelog-0.1.4'></a>
 ## 0.1.4 - 2026-03-10
 

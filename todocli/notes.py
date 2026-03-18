@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from .config import Config
@@ -248,3 +248,88 @@ def replace_catchup_block(markdown: str, block: str | None) -> str:
         return block
 
     return f"{base}\n\n{block}"
+
+
+@dataclass(frozen=True, slots=True)
+class WeekRange:
+    monday: date
+    sunday: date
+    cutoff: date
+
+
+@dataclass(frozen=True, slots=True)
+class WeeklyReviewResult:
+    week: WeekRange
+    done: dict[str, list[str]]
+    open: dict[str, list[str]]
+    scanned_files_count: int
+
+
+def iso_week_range(anchor: date) -> WeekRange:
+    """Return ISO week boundaries for the week containing *anchor*.
+
+    For the current (partial) week the cutoff is *anchor* itself rather
+    than Sunday, so future days are excluded from the report.
+    """
+    monday = anchor - timedelta(days=anchor.weekday())
+    sunday = monday + timedelta(days=6)
+    return WeekRange(monday=monday, sunday=sunday, cutoff=min(anchor, sunday))
+
+
+def iso_week_range_from_week(iso_year: int, iso_week: int) -> WeekRange:
+    """Return ISO week boundaries for a specific ISO year/week number."""
+    monday = date.fromisocalendar(iso_year, iso_week, 1)
+    sunday = monday + timedelta(days=6)
+    return WeekRange(monday=monday, sunday=sunday, cutoff=sunday)
+
+
+def compute_weekly_review(notes_dir: Path, week: WeekRange) -> WeeklyReviewResult:
+    """Compute a weekly review from dated notes.
+
+    Scans all notes up to and including *week.cutoff* to determine the
+    latest known state of every task.
+
+    Classification:
+    * **done** – task was checked at least once during the selected week
+      *and* its latest known state by the cutoff is checked.
+    * **open** – task's latest known state by the cutoff is unchecked.
+    * Tasks completed before the week and unchanged are excluded.
+    """
+    all_notes = list_dated_notes(notes_dir, before=week.cutoff + timedelta(days=1))
+
+    # Per-task tracking: (section, checked, checked_during_week, first_seen_idx)
+    task_states: dict[str, tuple[str, bool, bool, int]] = {}
+    entry_index = 0
+
+    for note in all_notes:
+        note_in_week = note.note_date >= week.monday
+        for entry in iter_checkbox_entries(note.path.read_text(encoding="utf-8")):
+            prior = task_states.get(entry.body)
+            first_seen = prior[3] if prior else entry_index
+            prior_checked_during_week = prior[2] if prior else False
+            checked_during_week = prior_checked_during_week or (note_in_week and entry.checked)
+            task_states[entry.body] = (
+                entry.section,
+                entry.checked,
+                checked_during_week,
+                first_seen,
+            )
+            entry_index += 1
+
+    done: dict[str, list[str]] = {}
+    open_tasks: dict[str, list[str]] = {}
+
+    sorted_tasks = sorted(task_states.items(), key=lambda item: item[1][3])
+
+    for body, (section, checked, checked_during_week, _) in sorted_tasks:
+        if checked and checked_during_week:
+            done.setdefault(section, []).append(body)
+        elif not checked:
+            open_tasks.setdefault(section, []).append(body)
+
+    return WeeklyReviewResult(
+        week=week,
+        done=done,
+        open=open_tasks,
+        scanned_files_count=len(all_notes),
+    )

@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from tomllib import TOMLDecodeError
@@ -21,9 +22,13 @@ from .config import (
 )
 from .notes import (
     collect_unchecked_tasks,
+    compute_weekly_review,
     find_latest_note_before,
+    iso_week_range,
+    iso_week_range_from_week,
     list_dated_notes,
     note_path_for_date,
+    parse_note_date,
     render_carry_over,
     render_catchup_block,
     render_note_header,
@@ -37,6 +42,7 @@ ACTION_COLORS = {
     "Updated": "yellow",
     "Opened": "cyan",
 }
+ISO_WEEK_RE = re.compile(r"^(?P<year>\d{4})-W(?P<week>\d{2})$")
 
 
 def styled_label(label: str) -> str:
@@ -174,6 +180,101 @@ def create_or_update_catchup_note(
     return note_path
 
 
+def parse_iso_week(value: str) -> tuple[int, int]:
+    match = ISO_WEEK_RE.fullmatch(value)
+    if match is None:
+        raise click.BadParameter("Expected ISO week in `YYYY-Www` format.")
+
+    iso_year = int(match.group("year"))
+    iso_week = int(match.group("week"))
+    try:
+        date.fromisocalendar(iso_year, iso_week, 1)
+    except ValueError as exc:
+        raise click.BadParameter(f"Invalid ISO week: {value}") from exc
+
+    return iso_year, iso_week
+
+
+def render_weekly_review_section(
+    title: str,
+    grouped_tasks: dict[str, list[str]],
+    *,
+    bullet_marker: str,
+    checked: bool,
+) -> str:
+    mark = "x" if checked else " "
+    lines = [f"## {title}", ""]
+    for section, tasks in grouped_tasks.items():
+        lines.append(f"### {section}")
+        lines.append("")
+        for task in tasks:
+            lines.append(f"{bullet_marker} [{mark}] {task}")
+        lines.append("")
+    if not grouped_tasks:
+        lines.append("_None_")
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
+def format_weekly_review_markdown(
+    review_result,
+    *,
+    bullet_marker: str,
+    iso_year: int,
+    iso_week: int,
+) -> str:
+    lines = [
+        f"# Weekly review for {iso_year}-W{iso_week:02d}",
+        "",
+        f"Week: {review_result.week.monday.isoformat()}..{review_result.week.sunday.isoformat()}",
+        f"Cutoff: {review_result.week.cutoff.isoformat()}",
+        f"Scanned files: {review_result.scanned_files_count}",
+        "",
+        render_weekly_review_section(
+            "Marked done this week",
+            review_result.done,
+            bullet_marker=bullet_marker,
+            checked=True,
+        ),
+        "",
+        render_weekly_review_section(
+            "Open at end of week",
+            review_result.open,
+            bullet_marker=bullet_marker,
+            checked=False,
+        ),
+    ]
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def is_dated_note_path_within_notes_dir(notes_dir: Path, path: Path) -> bool:
+    if parse_note_date(path) is None:
+        return False
+
+    lexical_notes_dir = notes_dir.expanduser().absolute()
+    lexical_path = path.expanduser().absolute()
+
+    try:
+        lexical_path.relative_to(lexical_notes_dir)
+    except ValueError:
+        return False
+
+    return True
+
+
+def validate_review_output_path(notes_dir: Path, output: Path) -> None:
+    if not is_dated_note_path_within_notes_dir(notes_dir, output):
+        return
+
+    raise click.BadParameter(
+        (
+            "Refusing to write to a dated markdown path inside `notes_dir`; "
+            "use a path outside the notes tree or rename the report file."
+        ),
+        param_hint="--output",
+    )
+
+
 @click.group(name="todo", cls=DefaultGroup, default="today", default_if_no_args=True)
 @click.version_option(package_name="todo-daily-notes")
 def main() -> None:
@@ -287,6 +388,69 @@ def show_config() -> None:
     click.echo(f"{styled_label('layout')}: {state.config.layout}")
     click.echo(f"{styled_label('carry_over_mode')}: {state.config.carry_over_mode}")
     click.echo(f"{styled_label('bullet_marker')}: {state.config.bullet_marker}")
+
+
+@main.group()
+def review() -> None:
+    """Review note history over broader time windows."""
+
+
+@review.command(name="week")
+@click.option(
+    "--week",
+    "iso_week_value",
+    type=str,
+    default=None,
+    help="ISO week in `YYYY-Www` format.",
+)
+@click.option(
+    "--date",
+    "anchor_date",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    default=None,
+    help="Anchor date; review that ISO week up to the selected day.",
+)
+@click.option(
+    "--output",
+    type=click.Path(path_type=Path, dir_okay=False),
+    default=None,
+    help="Write the markdown report to a file instead of stdout.",
+)
+def review_week(
+    iso_week_value: str | None, anchor_date: datetime | None, output: Path | None
+) -> None:
+    """Build a weekly markdown review from dated notes."""
+    if iso_week_value is not None and anchor_date is not None:
+        raise click.BadOptionUsage(
+            option_name="week",
+            message="Use either `--week` or `--date`, not both.",
+        )
+
+    state = load_config_or_fail()
+    if iso_week_value is not None:
+        iso_year, iso_week = parse_iso_week(iso_week_value)
+        week = iso_week_range_from_week(iso_year, iso_week)
+    else:
+        anchor = anchor_date.date() if anchor_date is not None else today_date()
+        iso_year, iso_week, _ = anchor.isocalendar()
+        week = iso_week_range(anchor)
+
+    review_result = compute_weekly_review(state.config.notes_dir, week)
+    report = format_weekly_review_markdown(
+        review_result,
+        bullet_marker=state.config.bullet_marker,
+        iso_year=iso_year,
+        iso_week=iso_week,
+    )
+
+    if output is None:
+        click.echo(report, nl=False)
+        return
+
+    validate_review_output_path(state.config.notes_dir, output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(report, encoding="utf-8")
+    click.echo(f"{styled_label('Written')}: {output}")
 
 
 @main.command()
