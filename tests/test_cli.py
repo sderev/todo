@@ -34,7 +34,6 @@ def fake_editor(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
 
     def _edit(*, filename: str):
         opened.append(Path(filename))
-        return None
 
     monkeypatch.setattr(cli.click, "edit", _edit)
     return opened

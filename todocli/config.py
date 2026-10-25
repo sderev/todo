@@ -57,7 +57,10 @@ def write_config(path: Path, config: Config) -> None:
 
 def _validate_notes_dir(value: object, *, base_dir: Path | None = None) -> Path:
     if not isinstance(value, (str, os.PathLike)):
-        raise ValueError(f"Invalid `notes_dir` value: {value!r}. Expected a path string.")
+        # Invalid config values use ValueError for the CLI's error handling.
+        raise ValueError(  # noqa: TRY004
+            f"Invalid `notes_dir` value: {value!r}. Expected a path string."
+        )
 
     notes_dir = Path(value).expanduser()
     if notes_dir.is_absolute():

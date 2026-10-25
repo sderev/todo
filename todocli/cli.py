@@ -54,7 +54,8 @@ def emit_action(action: str, path: Path) -> None:
 
 
 def today_date() -> date:
-    return date.today()
+    # Notes follow the user's local calendar date.
+    return date.today()  # noqa: DTZ011
 
 
 def load_config_or_fail(create_if_missing: bool = True) -> ConfigState:
@@ -481,13 +482,16 @@ def catchup(since: datetime | None, dry_run: bool, yes: bool) -> None:
         before=target_date,
         since=since_date,
     )
-    if len(notes) > CATCHUP_CONFIRM_THRESHOLD and not yes:
-        if not click.confirm(
+    if (
+        len(notes) > CATCHUP_CONFIRM_THRESHOLD
+        and not yes
+        and not click.confirm(
             (f"About to scan {len(notes)} dated note file(s). Continue?"),
             default=False,
-        ):
-            click.secho("Cancelled.", fg="yellow", bold=True)
-            return
+        )
+    ):
+        click.secho("Cancelled.", fg="yellow", bold=True)
+        return
 
     scan_result = scan_catchup_tasks_from_notes(notes)
     unresolved_tasks_count = sum(len(tasks) for tasks in scan_result.grouped_tasks.values())
